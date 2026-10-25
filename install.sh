@@ -62,15 +62,22 @@ import restore
 restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
 " "$repo_path" "$profile"
 
-    # 3. Авто-поиск и применение архива секретов
+    # 3. Авто-поиск и применение единого архива секретов (включая IDE)
     local sec_found=""
-    if [ -f "$HOME/secrets-bundle.tar.gz" ]; then
+    if [ -f "$HOME/secrets-bundle.tar.zst" ]; then
+        sec_found="$HOME/secrets-bundle.tar.zst"
+    elif [ -f "$HOME/secrets-bundle.tar.gz" ]; then
         sec_found="$HOME/secrets-bundle.tar.gz"
+    elif [ -f "$SCRIPT_DIR/secrets-bundle.tar.zst" ]; then
+        sec_found="$SCRIPT_DIR/secrets-bundle.tar.zst"
     elif [ -f "$SCRIPT_DIR/secrets-bundle.tar.gz" ]; then
         sec_found="$SCRIPT_DIR/secrets-bundle.tar.gz"
     else
         for u in /run/media/*/*; do
-            if [ -f "$u/secrets-bundle.tar.gz" ]; then
+            if [ -f "$u/secrets-bundle.tar.zst" ]; then
+                sec_found="$u/secrets-bundle.tar.zst"
+                break
+            elif [ -f "$u/secrets-bundle.tar.gz" ]; then
                 sec_found="$u/secrets-bundle.tar.gz"
                 break
             fi
@@ -82,10 +89,10 @@ restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
         restore_secrets_archive "$sec_found" "all"
     else
         echo ""
-        gum style --foreground 214 --bold "⚠️ Внимание: архив secrets-bundle.tar.gz не обнаружен в ~ или на USB-носителе!"
-        echo "   Токены авторизации Opencode (Deepseek API) и SSH-ключи будут активны"
-        echo "   после того, как вы скопируете secrets-bundle.tar.gz и выполните:"
-        echo "   omarchy-sync secrets-restore ~/secrets-bundle.tar.gz"
+        gum style --foreground 214 --bold "⚠️ Внимание: архив secrets-bundle.tar.zst не обнаружен в ~ или на USB-носителе!"
+        echo "   Токены авторизации Opencode (Deepseek API), SSH-ключи и Antigravity IDE"
+        echo "   будут активны после того, как вы скопируете единый secrets-bundle.tar.zst и выполните:"
+        echo "   omarchy-sync secrets-restore ~/secrets-bundle.tar.zst"
         echo ""
     fi
 

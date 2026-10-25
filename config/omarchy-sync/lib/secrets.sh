@@ -29,6 +29,12 @@ create_secrets_archive() {
         cp -a "$HOME/.local/share/opencode/auth.json" "$tmp_dir/data/opencode/auth.json"
     fi
 
+    # 4. Antigravity IDE
+    if [ -d "$HOME/.local/share/antigravity-ide" ]; then
+        echo " [+] Упаковка Antigravity IDE (~/.local/share/antigravity-ide)..."
+        cp -a "$HOME/.local/share/antigravity-ide" "$tmp_dir/data/antigravity-ide"
+    fi
+
     # 5. Wi-Fi профили NetworkManager (если есть доступ к sudo)
     if sudo -n true 2>/dev/null; then
         echo " [+] Упаковка Wi-Fi профилей (/etc/NetworkManager/system-connections)..."
@@ -37,7 +43,11 @@ create_secrets_archive() {
         sudo chown -R "$(id -u):$(id -g)" "$tmp_dir/data/network" 2>/dev/null || true
     fi
 
-    tar -czf "$target_archive" -C "$tmp_dir/data" .
+    if [[ "$target_archive" == *.zst ]]; then
+        tar --zstd -cf "$target_archive" -C "$tmp_dir/data" .
+    else
+        tar -czf "$target_archive" -C "$tmp_dir/data" .
+    fi
     rm -rf "$tmp_dir"
     chmod 600 "$target_archive"
     echo "✔ Архив секретов успешно создан: $target_archive (права 600)"
@@ -45,7 +55,7 @@ create_secrets_archive() {
 
 restore_secrets_archive() {
     local source_archive="$1"
-    local selected_items="${2:-all}" # "ssh,keyrings,opencode_auth,wifi"
+    local selected_items="${2:-all}" # "ssh,keyrings,opencode_auth,wifi,ide"
 
     if [ ! -f "$source_archive" ]; then
         echo "ОШИБКА: Файл архива $source_archive не найден!" >&2
@@ -54,7 +64,11 @@ restore_secrets_archive() {
 
     local tmp_dir
     tmp_dir="$(mktemp -d /tmp/omarchy-restore-secrets-XXXXXX)"
-    tar -xzf "$source_archive" -C "$tmp_dir"
+    if [[ "$source_archive" == *.zst ]]; then
+        tar --zstd -xf "$source_archive" -C "$tmp_dir"
+    else
+        tar -xzf "$source_archive" -C "$tmp_dir"
+    fi
 
     # SSH
     if [[ "$selected_items" == "all" || "$selected_items" =~ "ssh" ]]; then
@@ -82,10 +96,22 @@ restore_secrets_archive() {
     # Opencode Auth
     if [[ "$selected_items" == "all" || "$selected_items" =~ "opencode_auth" ]]; then
         if [ -f "$tmp_dir/opencode/auth.json" ]; then
-            echo " [+] Восстановление авторизации Opencode..."
+            echo " [+] Восстановление авторизации Opencode (Deepseek)..."
             mkdir -p "$HOME/.local/share/opencode"
             cp -a "$tmp_dir/opencode/auth.json" "$HOME/.local/share/opencode/"
             chmod 600 "$HOME/.local/share/opencode/auth.json"
+        fi
+    fi
+
+    # Antigravity IDE
+    if [[ "$selected_items" == "all" || "$selected_items" =~ "ide" ]]; then
+        if [ -d "$tmp_dir/antigravity-ide" ]; then
+            echo " [+] Восстановление Antigravity IDE..."
+            mkdir -p "$HOME/.local/share"
+            cp -a "$tmp_dir/antigravity-ide" "$HOME/.local/share/"
+            mkdir -p "$HOME/.local/bin"
+            ln -sf "$HOME/.local/share/antigravity-ide/bin/antigravity-ide" "$HOME/.local/bin/antigravity-ide"
+            echo "✔ Antigravity IDE успешно развернута."
         fi
     fi
 
