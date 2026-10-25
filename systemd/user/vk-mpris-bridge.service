@@ -1,0 +1,12 @@
+[Unit]
+Description=VK Music MPRIS Bridge for KDE Connect
+After=network.target sound.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/yar/.local/bin/vk-mpris-bridge
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

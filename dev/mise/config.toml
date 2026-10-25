@@ -1,0 +1,10 @@
+[tools]
+claude = "latest"
+codex = "latest"
+gemini = { version = "latest", allow_builds = ["@github/keytar", "node-pty"] }
+node = "26.12.0"
+opencode = { version = "latest", allow_builds = ["@opencode/cli"] }
+python = "3.12.15"
+
+[settings.upgrade]
+auto_prune = false

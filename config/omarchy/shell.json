@@ -1,0 +1,108 @@
+{
+  "bar": {
+    "centerAnchor": "",
+    "id": "yar.bar",
+    "layout": {
+      "center": [
+        {
+          "format": "d MMMM yyyy, HH:mm:ss",
+          "formatAlt": "d MMMM yyyy HH:mm:ss",
+          "id": "yar.clock",
+          "verticalFormat": "HH\n—\nmm\n—\nss"
+        },
+        {
+          "id": "yar.workspaces"
+        },
+        {
+          "alwaysShow": true,
+          "id": "omarchy.indicators"
+        },
+        {
+          "id": "omarchy.keyboard-layout"
+        }
+      ],
+      "left": [
+        {
+          "id": "yar.agents-manager"
+        },
+        {
+          "id": "yar.agents",
+          "providers": {
+            "agy": {
+              "enabled": true
+            },
+            "claude": {
+              "enabled": false
+            }
+          }
+        },
+        {
+          "id": "yar.sysinfo"
+        }
+      ],
+      "right": [
+        {
+          "id": "yar.player"
+        },
+        {
+          "id": "yar.tray",
+          "maxVisible": 15
+        },
+        {
+          "id": "omarchy.weather"
+        },
+        {
+          "id": "omarchy.system-update"
+        },
+        {
+          "id": "omarchy.power"
+        },
+        {
+          "id": "omarchy.monitor"
+        },
+        {
+          "id": "omarchy.bluetooth"
+        },
+        {
+          "id": "omarchy.network"
+        },
+        {
+          "id": "omarchy.audio"
+        }
+      ]
+    },
+    "position": "bottom",
+    "transparent": false
+  },
+  "cloneSourceRestores": [
+    "yar.idle",
+    "yar.background",
+    "yar.lock",
+    "yar.notifications"
+  ],
+  "disabledPlugins": [
+    "omarchy.idle",
+    "omarchy.background",
+    "omarchy.lock",
+    "omarchy.notifications"
+  ],
+  "idle": {
+    "lock": 0,
+    "screensaver": 180
+  },
+  "plugins": [
+    {
+      "id": "yar.idle"
+    },
+    {
+      "id": "yar.background"
+    },
+    {
+      "id": "yar.lock"
+    },
+    {
+      "id": "yar.notifications"
+    }
+  ],
+  "version": 1
+}

@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+# omarchy:summary=Print the Antigravity CLI usage record as JSON
+# omarchy:args=[--force] [--limits-only]
+# omarchy:hidden=true
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+AGENT_ID = "agy"
+AGENT_NAME = "Antigravity"
+PROBE_CACHE_TTL_NORMAL = 45.0  # seconds to cache limits in normal runs
+PROBE_CACHE_TTL_LIMITS = 15.0  # seconds to cache limits when panel opens
+
+
+def cache_root() -> Path:
+  root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "omarchy" / "agent-usage"
+  root.mkdir(parents=True, exist_ok=True)
+  return root
+
+
+def read_json(path: Path) -> dict[str, Any] | None:
+  if not path.is_file():
+    return None
+  try:
+    with path.open("r", encoding="utf-8") as f:
+      data = json.load(f)
+      return data if isinstance(data, dict) else None
+  except Exception:
+    return None
+
+
+def write_json(path: Path, data: dict[str, Any]) -> None:
+  tmp = path.with_suffix(".tmp")
+  try:
+    with tmp.open("w", encoding="utf-8") as f:
+      json.dump(data, f, separators=(",", ":"))
+    tmp.replace(path)
+  except Exception:
+    if tmp.exists():
+      tmp.unlink()
+
+
+def probe_agy_limits() -> list[dict[str, Any]]:
+  try:
+    proc = subprocess.run(
+      ["agy", "-p", "/usage", "--output-format", "json"],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True,
+      timeout=15,
+      check=True
+    )
+    raw = json.loads(proc.stdout)
+    groups = raw.get("command", {}).get("data", {}).get("groups", [])
+    limits: list[dict[str, Any]] = []
+
+    for g in groups:
+      g_name = g.get("name", "")
+      buckets = g.get("buckets", [])
+      # Order: weekly first or 5h first. Let us keep buckets as returned or 5h then weekly
+      buckets.sort(key=lambda b: 0 if "5h" in b.get("window", "") else 1)
+      for b in buckets:
+        rem = float(b.get("remaining_fraction", 1.0))
+        # Percent shows remaining quota (e.g. 0.87 -> 87%), matching /usage directly
+        percent = round(max(0.0, min(1.0, rem)), 4)
+        window = b.get("window", "")
+        w_title = "5-Hour" if "5h" in window else "Weekly"
+        prefix = "Gemini" if "Gemini" in g_name else "Claude & GPT"
+        title = f"{prefix} {w_title} Remaining"
+        b_name = b.get("name", "")
+        label = f"{g_name} {b_name}"
+        reset_utc = b.get("reset_time", "")
+        reset_local = ""
+        if reset_utc:
+          try:
+            dt_utc = dt.datetime.fromisoformat(reset_utc.replace("Z", "+00:00"))
+            dt_local = dt_utc.astimezone()
+            reset_local = dt_local.strftime("%Y-%m-%d %H:%M")
+          except Exception:
+            pass
+        limits.append({
+          "title": title,
+          "label": label,
+          "percent": percent,
+          "remaining": True,
+          "resetsAt": reset_utc,
+          "resetLocal": reset_local
+        })
+    return limits
+  except Exception:
+    return []
+
+
+def collect_limits(force: bool, limits_only: bool) -> tuple[list[dict[str, Any]], str, str]:
+  cache_file = cache_root() / "agy-limits.json"
+  ttl = PROBE_CACHE_TTL_LIMITS if limits_only else PROBE_CACHE_TTL_NORMAL
+
+  cached = read_json(cache_file)
+  if cached and not force:
+    fetched_at = cached.get("fetchedAt", 0)
+    if time.time() - fetched_at < ttl and "limits" in cached:
+      return cached["limits"], "", ""
+
+  fresh_limits = probe_agy_limits()
+  if fresh_limits:
+    write_json(cache_file, {"fetchedAt": time.time(), "limits": fresh_limits})
+    return fresh_limits, "", ""
+
+  if cached and "limits" in cached:
+    return cached["limits"], "", ""
+
+  return [], "Limits unavailable", "Run `agy` to verify connection and login."
+
+
+def main() -> int:
+  parser = argparse.ArgumentParser(description="Print the Antigravity CLI usage record as JSON")
+  parser.add_argument("--force", action="store_true", help="bypass caches")
+  parser.add_argument("--limits-only", action="store_true", help="reuse stats, only probe limits")
+  args = parser.parse_args()
+
+  limits, status_text, auth_help = collect_limits(args.force, args.limits_only)
+
+  record: dict[str, Any] = {
+    "schemaVersion": 1,
+    "id": AGENT_ID,
+    "name": AGENT_NAME,
+    "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+    "ready": len(limits) > 0,
+    "hasLocalStats": False,
+    "hasPromptStats": False,
+    "tierLabel": "Google Quota",
+    "usageStatusText": status_text,
+    "authHelpText": auth_help,
+    "limits": limits,
+    "recentDays": [],
+    "modelUsage": {},
+    "todayPrompts": 0,
+    "todaySessions": 0,
+    "todayTotalTokens": 0,
+    "totalPrompts": 0,
+    "totalSessions": 0,
+    "activeDays": 0,
+    "activeDates": []
+  }
+
+  print(json.dumps(record, separators=(",", ":"), sort_keys=True))
+  return 0
+
+
+if __name__ == "__main__":
+  raise SystemExit(main())

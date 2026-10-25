@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "yar.agents-manager",
+  "name": "Agents Manager",
+  "version": "1.0.0",
+  "author": "yar",
+  "description": "Quick management widget for active AI agents",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Agents Manager",
+    "description": "Shows active agents, task, and lets you summon them to current workspace",
+    "category": "AI",
+    "allowMultiple": false
+  }
+}

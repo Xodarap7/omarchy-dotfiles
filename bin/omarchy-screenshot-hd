@@ -1,0 +1,91 @@
+#!/bin/bash
+# Pixel-perfect 1:1 HD screenshot tool for Wayland / Hyprland
+# Solves fractional scaling blur by capturing raw framebuffer pixels without freeze resampling
+
+OUTPUT_DIR="${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
+mkdir -p "$OUTPUT_DIR"
+
+# Collect window and monitor rectangles for smart snapping in slurp
+active_ws=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .activeWorkspace.id // 1')
+window_rects=$(hyprctl clients -j | jq -r --arg ws "$active_ws" '
+  [.[] | select(.workspace.id == ($ws | tonumber) and .hidden != true) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"] | unique[]
+' 2>/dev/null)
+
+monitor_rects=$(hyprctl monitors -j | jq -r '
+  .[] | "\(.x),\(.y) \((.width / .scale) | floor)x\((.height / .scale) | floor)"
+' 2>/dev/null)
+
+CANDIDATES=$(printf "%s\n%s\n" "$monitor_rects" "$window_rects" | grep -v '^$' | sort -u)
+
+# Slurp selection without hyprpicker freeze (pure clean vector selection)
+SELECTION=$(echo "$CANDIDATES" | slurp -b "#00000044" -c "#89b4fa" -s "#89b4fa22" -w 2 2>/dev/null)
+[[ -z "$SELECTION" ]] && exit 0
+
+# Convert logical slurp selection to exact physical framebuffer crop coordinates
+CROP_GEO=$(python3 -c '
+import json, sys, subprocess
+
+geo = sys.argv[1]
+try:
+    parts = geo.replace(",", " ").replace("x", " ").split()
+    lx, ly, lw, lh = map(float, parts)
+    
+    # Snap single clicks (area < 20) to nearest enclosing candidate rectangle
+    if lw * lh < 20 and len(sys.argv) > 2:
+        for cand in sys.argv[2].splitlines():
+            cp = cand.replace(",", " ").replace("x", " ").split()
+            if len(cp) == 4:
+                cx, cy, cw, ch = map(float, cp)
+                if cx <= lx < cx + cw and cy <= ly < cy + ch:
+                    lx, ly, lw, lh = cx, cy, cw, ch
+                    break
+
+    mon_json = subprocess.check_output(["hyprctl", "monitors", "-j"])
+    monitors = json.loads(mon_json)
+    monitors.sort(key=lambda m: m["x"])
+
+    center_x = lx + lw / 2
+    center_y = ly + lh / 2
+
+    target_mon = monitors[0]
+    for m in monitors:
+        log_w = m["width"] / m["scale"]
+        log_h = m["height"] / m["scale"]
+        if m["x"] <= center_x < m["x"] + log_w:
+            target_mon = m
+            break
+
+    phys_mon_x = 0
+    for m in monitors:
+        if m["id"] == target_mon["id"]:
+            break
+        phys_mon_x += m["width"]
+
+    scale = target_mon["scale"]
+    offset_lx = lx - target_mon["x"]
+    offset_ly = ly - target_mon["y"]
+
+    px = int(round(phys_mon_x + offset_lx * scale))
+    py = int(round(offset_ly * scale))
+    pw = int(round(lw * scale))
+    ph = int(round(lh * scale))
+
+    print(f"{pw}x{ph}+{px}+{py}")
+except Exception as e:
+    sys.exit(1)
+' "$SELECTION" "$CANDIDATES")
+
+[[ -z "$CROP_GEO" ]] && exit 1
+
+FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
+FILEPATH="$OUTPUT_DIR/$FILENAME"
+
+# Capture direct pristine framebuffer via PPM stream and crop pixel-perfect lossless PNG
+grim -t ppm - | magick ppm:- -crop "$CROP_GEO" +repage "$FILEPATH" || exit 1
+
+# Copy to clipboard
+wl-copy --type image/png < "$FILEPATH"
+
+# Send desktop notification with image thumbnail
+omarchy-notification-send "Снимок экрана" "Сохранён в $FILENAME и скопирован в буфер" \
+  --image "$FILEPATH" || true

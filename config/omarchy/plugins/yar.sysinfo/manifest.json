@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "yar.sysinfo",
+  "name": "System Info",
+  "version": "1.0.0",
+  "author": "yar",
+  "description": "Hardware metrics: GPU, CPU, RAM utilization and temperatures",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "System Info",
+    "description": "GPU, CPU and RAM load and temperature monitor",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "yar.player",
+  "name": "My Player",
+  "version": "1.0.0",
+  "author": "yar",
+  "description": "Compact MPRIS playback controls",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "My Player",
+    "description": "Previous, play/pause and next controls",
+    "category": "Media",
+    "allowMultiple": false
+  }
+}

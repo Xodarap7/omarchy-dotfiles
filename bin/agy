@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Изоляция частного диска hdd_blue от окружения агента через Bubblewrap
+exec bwrap --dev-bind / / --tmpfs /mnt/hdd_blue /usr/bin/agy --dangerously-skip-permissions "$@"

@@ -1,0 +1,43 @@
+#!/bin/bash
+# Unified scratchpad toggle for VK Музыка & Telegram widgets
+
+music_addr=$(hyprctl clients -j | jq -r '.[] | select(.class | test("^chrome-(vk\\.com__audio|music\\.vk\\.com)"; "i")) | .address' | head -n1)
+tg_addr=$(hyprctl clients -j | jq -r '.[] | select((.class | test("telegram"; "i")) or (.initialClass | test("telegram"; "i"))) | .address' | head -n1)
+is_scratchpad_open=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .specialWorkspace.name')
+
+align_all() {
+  ~/.local/bin/omarchy-align-vk-music
+  ~/.local/bin/omarchy-align-telegram
+}
+
+if [[ "$is_scratchpad_open" == "special:scratchpad" ]]; then
+  # Scratchpad is open on current monitor: hide it
+  hyprctl dispatch 'hl.dsp.workspace.toggle_special("scratchpad")'
+else
+  # Scratchpad is closed: launch any missing apps, open scratchpad and align both
+  if [[ -z "$music_addr" ]]; then
+    omarchy-launch-webapp "https://vk.com/audio" &
+  fi
+
+  if [[ -z "$tg_addr" ]]; then
+    setsid uwsm-app -- telegram >/dev/null 2>&1 &
+  fi
+
+  hyprctl dispatch 'hl.dsp.workspace.toggle_special("scratchpad")'
+
+  if [[ -n "$music_addr" ]]; then
+    hyprctl dispatch "hl.dsp.focus({ window = \"address:$music_addr\" })"
+  fi
+
+  align_all
+
+  # If either app was just launched, ensure they get aligned once mapped
+  if [[ -z "$music_addr" || -z "$tg_addr" ]]; then
+    (
+      for i in {1..25}; do
+        sleep 0.1
+        align_all
+      done
+    ) &
+  fi
+fi

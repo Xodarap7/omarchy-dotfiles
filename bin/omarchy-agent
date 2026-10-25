@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# omarchy:summary=Launch the default coding agent in a terminal (supporting agy)
+# omarchy:args=[--inline] [--pick]
+# omarchy:examples=omarchy agent | omarchy agent --inline
+
+inline=false
+pick=false
+prompt=""
+extra_args=()
+
+while (($#)); do
+  case "$1" in
+    --inline)
+      inline=true
+      shift
+      ;;
+    --pick)
+      pick=true
+      shift
+      ;;
+    --prompt)
+      prompt=${2:?--prompt needs a value}
+      shift 2
+      ;;
+    *)
+      extra_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+agent=$(omarchy-default-agent 2>/dev/null || true)
+
+if [[ "$agent" == "agy" || "$agent" == "antigravity" ]]; then
+  [[ $PWD == "$HOME" && -d $HOME/Work ]] && cd "$HOME/Work"
+
+  if [[ -n "$prompt" && "$prompt" =~ "A process crashed on this Omarchy machine" && ! "$prompt" =~ "НА РУССКОМ ЯЗЫКЕ" ]]; then
+    prompt+=$'\n\nКРИТИЧЕСКИ ВАЖНОЕ ТРЕБОВАНИЕ:\nВесь свой анализ, расследование и итоговый отчёт подготовь ПОЛНОСТЬЮ НА РУССКОМ ЯЗЫКЕ.'
+  fi
+
+  command=(agy)
+  [[ -n "$prompt" ]] && command+=(-i "$prompt")
+
+  if [[ $inline == "true" ]]; then
+    exec "${command[@]}"
+  else
+    exec omarchy-launch-tui --app-id=org.omarchy.agent "${command[@]}"
+  fi
+fi
+
+# Fallback to system omarchy-agent for other agents
+forward_args=()
+[[ $inline == "true" ]] && forward_args+=(--inline)
+[[ $pick == "true" ]] && forward_args+=(--pick)
+[[ -n "$prompt" ]] && forward_args+=(--prompt "$prompt")
+exec /usr/share/omarchy/bin/omarchy-agent "${forward_args[@]}" "${extra_args[@]}"

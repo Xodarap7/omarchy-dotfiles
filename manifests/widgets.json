@@ -1,0 +1,162 @@
+{
+  "widgets": [
+    {
+      "id": "yar.clock",
+      "name": "Часы и дата (yar.clock)",
+      "section": "center",
+      "requires_plugin": true,
+      "description": "Центральные часы с датой и расширенным форматом времени",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.workspaces",
+      "name": "Рабочие столы (yar.workspaces)",
+      "section": "center",
+      "requires_plugin": true,
+      "description": "Интерактивный переключатель воркспейсов Hyprland",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.indicators",
+      "name": "Системные индикаторы (omarchy.indicators)",
+      "section": "center",
+      "requires_plugin": false,
+      "description": "Индикаторы CapsLock, NumLock и системных режимов",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.keyboard-layout",
+      "name": "Раскладка клавиатуры (omarchy.keyboard-layout)",
+      "section": "center",
+      "requires_plugin": false,
+      "description": "Индикатор текущей языковой раскладки (RU/EN)",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.agents-manager",
+      "name": "Менеджер AI-агентов (yar.agents-manager)",
+      "section": "left",
+      "requires_plugin": true,
+      "description": "Меню управления и переключения фоновых AI-агентов",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.agents",
+      "name": "Индикатор AI-агентов (yar.agents)",
+      "section": "left",
+      "requires_plugin": true,
+      "description": "Виджет статуса работы Antigravity / Claude",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.sysinfo",
+      "name": "Монитор системы (yar.sysinfo)",
+      "section": "left",
+      "requires_plugin": true,
+      "description": "Графики и процент загрузки процессора, памяти и датчиков",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.player",
+      "name": "Медиаплеер (yar.player)",
+      "section": "right",
+      "requires_plugin": true,
+      "description": "Управление треком, пауза/плей и название текущей песни",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.tray",
+      "name": "Системный трей (yar.tray)",
+      "section": "right",
+      "requires_plugin": true,
+      "description": "Иконки фоновых приложений (Telegram, Steam и т.д.)",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.weather",
+      "name": "Погода (omarchy.weather)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Информер температуры и погодных условий",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.system-update",
+      "name": "Обновления системы (omarchy.system-update)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Индикатор доступных пакетов для обновления",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.power",
+      "name": "Питание и батарея (omarchy.power)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Профиль энергопотребления, уровень заряда батареи, выключение",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.monitor",
+      "name": "Управление дисплеем (omarchy.monitor)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Яркость и управление внешними дисплеями",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.bluetooth",
+      "name": "Bluetooth (omarchy.bluetooth)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Управление подключением Bluetooth-устройств",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.network",
+      "name": "Сеть Wi-Fi / LAN (omarchy.network)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Индикатор подключения к интернету и выбор Wi-Fi сетей",
+      "default_enabled": true
+    },
+    {
+      "id": "omarchy.audio",
+      "name": "Звук и аудиовыходы (omarchy.audio)",
+      "section": "right",
+      "requires_plugin": false,
+      "description": "Ползунок громкости, выбор микрофона и динамиков/наушников",
+      "default_enabled": true
+    }
+  ],
+  "shell_extensions": [
+    {
+      "id": "yar.idle",
+      "name": "Служба ожидания (yar.idle)",
+      "requires_plugin": true,
+      "description": "Управление блокировкой и сном при бездействии",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.background",
+      "name": "Менеджер фонов (yar.background)",
+      "requires_plugin": true,
+      "description": "Отрисовка обоев и смена тем",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.lock",
+      "name": "Экран блокировки (yar.lock)",
+      "requires_plugin": true,
+      "description": "Кастомный экран ввода пароля при блокировке",
+      "default_enabled": true
+    },
+    {
+      "id": "yar.notifications",
+      "name": "Уведомления (yar.notifications)",
+      "requires_plugin": true,
+      "description": "Всплывающие уведомления и шторка истории",
+      "default_enabled": true
+    }
+  ]
+}

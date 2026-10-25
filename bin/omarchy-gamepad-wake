@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+import glob
+import os
+import select
+import struct
+import subprocess
+import time
+
+JS_EVENT_FORMAT = "IhBB"
+JS_EVENT_SIZE = struct.calcsize(JS_EVENT_FORMAT)
+JS_EVENT_BUTTON = 0x01
+JS_EVENT_AXIS = 0x02
+JS_EVENT_INIT = 0x80
+
+AXIS_DEADZONE = 16000
+
+def is_real_gamepad(dev_path):
+    js_name = os.path.basename(dev_path)
+    sys_name_path = f"/sys/class/input/{js_name}/device/name"
+    try:
+        with open(sys_name_path, "r") as f:
+            name = f.read().lower()
+            if "mouse" in name or "touchpad" in name or "libvirtualhid" in name:
+                return False
+    except OSError:
+        pass
+    return True
+
+def wake():
+    res = subprocess.run(["pgrep", "-f", "[o]rg.omarchy.screensaver"], stdout=subprocess.DEVNULL)
+    if res.returncode == 0:
+        subprocess.run(["pkill", "-f", "[o]rg.omarchy.screensaver"])
+        subprocess.run(["omarchy-system-wake"])
+
+def main():
+    last_wake = 0
+    while True:
+        all_devs = glob.glob("/dev/input/js*")
+        valid_devs = [d for d in all_devs if is_real_gamepad(d)]
+        
+        if not valid_devs:
+            time.sleep(2)
+            continue
+
+        fds = {}
+        for dev in valid_devs:
+            try:
+                fd = os.open(dev, os.O_RDONLY | os.O_NONBLOCK)
+                fds[fd] = dev
+            except OSError:
+                pass
+
+        if not fds:
+            time.sleep(2)
+            continue
+
+        try:
+            while True:
+                r, _, _ = select.select(list(fds.keys()), [], [], 2.0)
+                if not r:
+                    current = [d for d in glob.glob("/dev/input/js*") if is_real_gamepad(d)]
+                    if set(current) != set(valid_devs):
+                        break
+                    continue
+
+                device_error = False
+                for fd in r:
+                    while True:
+                        try:
+                            data = os.read(fd, JS_EVENT_SIZE)
+                        except BlockingIOError:
+                            break
+                        except OSError:
+                            device_error = True
+                            break
+
+                        if not data or len(data) < JS_EVENT_SIZE:
+                            if len(data) == 0:
+                                device_error = True
+                            break
+
+                        _, value, ev_type, _ = struct.unpack(JS_EVENT_FORMAT, data)
+                        if ev_type & JS_EVENT_INIT:
+                            continue
+
+                        should_wake = False
+                        if (ev_type & ~JS_EVENT_INIT) == JS_EVENT_BUTTON:
+                            if value == 1:
+                                should_wake = True
+                        elif (ev_type & ~JS_EVENT_INIT) == JS_EVENT_AXIS:
+                            if abs(value) > AXIS_DEADZONE:
+                                should_wake = True
+
+                        if should_wake:
+                            now = time.time()
+                            if now - last_wake > 0.5:
+                                last_wake = now
+                                wake()
+
+                if device_error:
+                    break
+        finally:
+            for fd in list(fds.keys()):
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+
+if __name__ == "__main__":
+    main()

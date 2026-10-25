@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# omarchy:summary=Diagnose a crashed process with Antigravity CLI
+# omarchy:args=<pid> [comm] [exe] [signal]
+# omarchy:examples=omarchy agent crash 1516893
+
+set -euo pipefail
+
+pid=${1:?usage: omarchy-agent-crash <pid> [comm] [exe] [signal]}
+
+if [[ ! $pid =~ ^[0-9]+$ ]]; then
+  echo "Not a PID: $pid" >&2
+  echo "Usage: omarchy agent crash <pid>   (see: coredumpctl list)" >&2
+  exit 1
+fi
+
+comm=${2:-unknown}
+exe=${3:-unknown}
+signal=${4:-unknown}
+
+skill="${OMARCHY_PATH:-/usr/share/omarchy}/default/agents/skills/diagnose-crash/SKILL.md"
+[[ -f $skill ]] || skill="$HOME/.agents/skills/diagnose-crash/SKILL.md"
+
+when=$(coredumpctl list "$pid" --no-pager --no-legend 2>/dev/null | tail -1 | cut -d' ' -f1-4) || true
+when=${when:-unknown}
+
+prompt=$(
+  cat <<PROMPT
+В системе произошел сбой процесса (краш), и мне нужно выяснить причину.
+
+Данные systemd-coredump:
+  процесс:  $comm
+  PID:      $pid
+  бинарник: $exe
+  сигнал:   $signal
+  время:    $when
+
+Используй навык diagnose-crash ($skill): в нём подробно описано, как расследовать причину через coredumpctl, стек вызовов (backtrace), журнал и проверить OOM.
+
+КРИТИЧЕСКИ ВАЖНОЕ ТРЕБОВАНИЕ:
+Весь свой анализ, расследование, объяснение причин и итоговый отчёт подготовь ПОЛНОСТЬЮ НА РУССКОМ ЯЗЫКЕ.
+PROMPT
+)
+
+exec omarchy-launch-tui --app-id=org.omarchy.agent agy -i "$prompt"

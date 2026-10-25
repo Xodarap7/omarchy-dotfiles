@@ -1,0 +1,16 @@
+#!/bin/bash
+# Focus Telegram from notification click: open scratchpad and align windows
+
+tg_addr=$(hyprctl clients -j | jq -r '.[] | select((.class | test("telegram"; "i")) or (.initialClass | test("telegram"; "i"))) | .address' | head -n1)
+
+is_scratchpad_open=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .specialWorkspace.name')
+if [[ "$is_scratchpad_open" != "special:scratchpad" ]]; then
+  hyprctl dispatch 'hl.dsp.workspace.toggle_special("scratchpad")'
+fi
+
+if [[ -n "$tg_addr" ]]; then
+  hyprctl dispatch "hl.dsp.focus({ window = \"address:$tg_addr\" })"
+fi
+
+~/.local/bin/omarchy-align-telegram
+~/.local/bin/omarchy-align-vk-music

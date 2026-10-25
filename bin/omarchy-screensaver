@@ -1,0 +1,136 @@
+#!/bin/bash
+
+# omarchy:summary=Run synchronized Omarchy screensaver across all monitors using shared effects from TTE.
+
+screensaver_in_focus() {
+  hyprctl activewindow -j | jq -e '.class == "org.omarchy.screensaver"' >/dev/null 2>&1
+}
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/omarchy-screensaver"
+mkdir -p "$STATE_DIR/pids"
+
+# Clean up any stale PIDs from previous runs
+for pidfile in "$STATE_DIR/pids/"*; do
+  [[ -f "$pidfile" ]] || continue
+  pid="${pidfile##*/}"
+  if ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$pidfile" 2>/dev/null
+  fi
+done
+
+touch "$STATE_DIR/pids/$$"
+
+exit_screensaver() {
+  hyprctl eval 'hl.config({ cursor = { invisible = false } })' &>/dev/null || hyprctl keyword cursor:invisible false &>/dev/null || true
+  pkill -x ttfx 2>/dev/null
+  rm -f "$STATE_DIR/pids/$$" 2>/dev/null
+  if [[ -d "$STATE_DIR/pids" ]] && [[ -z $(ls -A "$STATE_DIR/pids" 2>/dev/null) ]]; then
+    rm -rf "$STATE_DIR" 2>/dev/null
+  fi
+  pkill -f '[o]rg.omarchy.screensaver' 2>/dev/null
+  exit 0
+}
+
+trap exit_screensaver SIGINT SIGTERM SIGHUP SIGQUIT
+
+printf '\033]11;rgb:00/00/00\007'  # Set background color to black
+
+hyprctl eval 'hl.config({ cursor = { invisible = true } })' &>/dev/null || hyprctl keyword cursor:invisible true &>/dev/null
+
+tty=$(tty 2>/dev/null)
+
+wait_for_terminal_resize() {
+  local deadline=$((SECONDS + 2))
+  while ((SECONDS < deadline)) && [[ $(stty size 2>/dev/null) == "24 80" ]]; do
+    sleep 0.02
+  done
+}
+
+wait_for_terminal_resize
+
+# Wait up to 3 seconds for all screensaver windows to open and register
+expected_monitors=$(hyprctl monitors -j 2>/dev/null | jq '. | length' 2>/dev/null || echo 1)
+[[ -z "$expected_monitors" || "$expected_monitors" -lt 1 ]] && expected_monitors=1
+
+deadline=$((SECONDS + 3))
+while ((SECONDS < deadline)); do
+  current_pids=$(ls -1 "$STATE_DIR/pids" 2>/dev/null | wc -l)
+  (( current_pids >= expected_monitors )) && break
+  sleep 0.05
+done
+
+EFFECTS=(
+  beams binarypath blackhole bouncyballs bubbles burn colorshift crumble
+  decrypt errorcorrect expand fireworks highlight laseretch matrix middleout
+  orbittingvolley overflow pour print rain randomsequence rings scattered
+  slice slide smoke spotlights spray swarm sweep synthgrid thunderstorm
+  unstable vhstape waves wipe
+)
+
+round=0
+while true; do
+  ((round++))
+
+  # Elect leader for this round to pick the synchronized effect and seed
+  if mkdir "$STATE_DIR/round_${round}.lock" 2>/dev/null; then
+    idx=$((RANDOM % ${#EFFECTS[@]}))
+    chosen_effect="${EFFECTS[$idx]}"
+    chosen_seed=$RANDOM
+    echo "$chosen_effect $chosen_seed" > "$STATE_DIR/round_${round}.info"
+    touch "$STATE_DIR/round_${round}.ready"
+  else
+    local_deadline=$((SECONDS + 3))
+    while ((SECONDS < local_deadline)) && [[ ! -f "$STATE_DIR/round_${round}.ready" ]]; do
+      sleep 0.02
+    done
+  fi
+
+  if [[ -f "$STATE_DIR/round_${round}.info" ]]; then
+    read -r effect seed < "$STATE_DIR/round_${round}.info"
+  else
+    effect="${EFFECTS[$((RANDOM % ${#EFFECTS[@]}))]}"
+    seed=$RANDOM
+  fi
+
+  # Barrier: wait for all active instances to synchronize start
+  touch "$STATE_DIR/start_${round}_$$"
+  active_instances=$(ls -1 "$STATE_DIR/pids" 2>/dev/null | wc -l)
+  [[ $active_instances -lt 1 ]] && active_instances=1
+
+  local_deadline=$((SECONDS + 3))
+  while ((SECONDS < local_deadline)); do
+    ready_count=$(ls -1 "$STATE_DIR/start_${round}_"* 2>/dev/null | wc -l)
+    (( ready_count >= active_instances )) && break
+    sleep 0.02
+  done
+
+  # Run identical effect and seed simultaneously
+  ttfx -i ~/.config/omarchy/branding/screensaver.txt \
+    --frame-rate 120 --canvas-width 0 --canvas-height 0 --reuse-canvas --anchor-canvas c --anchor-text c \
+    --no-eol --no-restore-cursor --seed "$seed" "$effect" &
+
+  ttfx_pid=$!
+
+  while kill -0 "$ttfx_pid" 2>/dev/null; do
+    if read -n1 -t 0.2 || ! screensaver_in_focus; then
+      exit_screensaver
+    fi
+  done
+
+  # Barrier: wait for all active instances to finish before moving to the next effect
+  touch "$STATE_DIR/done_${round}_$$"
+  local_deadline=$((SECONDS + 10))
+  while ((SECONDS < local_deadline)); do
+    done_count=$(ls -1 "$STATE_DIR/done_${round}_"* 2>/dev/null | wc -l)
+    (( done_count >= active_instances )) && break
+    if read -n1 -t 0.1 || ! screensaver_in_focus; then
+      exit_screensaver
+    fi
+  done
+
+  # Clean up old round markers
+  if [[ $round -gt 2 ]]; then
+    old_round=$((round - 2))
+    rm -f "$STATE_DIR"/*_${old_round}_* "$STATE_DIR"/round_${old_round}.* 2>/dev/null
+  fi
+done

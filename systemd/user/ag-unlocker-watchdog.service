@@ -1,0 +1,12 @@
+[Unit]
+Description=Antigravity Unlocker auto-patch
+After=default.target
+
+[Service]
+Environment="XDG_DATA_HOME=/home/yar/.local/share"
+ExecStart=/home/yar/.local/share/agunlocker/ag_proxy --watchdog
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

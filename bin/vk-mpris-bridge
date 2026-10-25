@@ -1,0 +1,215 @@
+#!/usr/bin/python3
+"""
+VK Music MPRIS Bridge & Sanitizer for KDE Connect.
+Debounces transient empty-metadata events from Chromium/VK,
+preserves album covers in a persistent file, generates unique track IDs,
+and exposes a clean 'VK Музыка' MPRIS player for KDE Connect / Android.
+"""
+
+import sys
+import os
+import shutil
+import hashlib
+import subprocess
+import dbus
+import dbus.service
+import dbus.mainloop.glib
+from gi.repository import GLib
+
+COVER_FILE = "/tmp/vk_current_cover.png"
+
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+bus = dbus.SessionBus()
+
+class VKPlayer(dbus.service.Object):
+    def __init__(self):
+        bus_name = dbus.service.BusName("org.mpris.MediaPlayer2.vkmusic", bus)
+        super().__init__(bus_name, "/org/mpris/MediaPlayer2")
+        self.status = "Stopped"
+        self.metadata = dbus.Dictionary({}, signature="sv")
+        self.debounce_timer = None
+        self._setup_chromium_watcher()
+
+    def _setup_chromium_watcher(self):
+        bus.add_signal_receiver(
+            self._on_properties_changed,
+            signal_name="PropertiesChanged",
+            dbus_interface="org.freedesktop.DBus.Properties",
+            path="/org/mpris/MediaPlayer2",
+            sender_keyword="sender"
+        )
+        self._update_from_chromium()
+
+    def _on_properties_changed(self, iface, changed, invalidated, sender=None):
+        # Ignore our own signals
+        if sender == bus.get_unique_name():
+            return
+        if iface != "org.mpris.MediaPlayer2.Player":
+            return
+        
+        # Debounce rapid signal bursts from Chromium
+        if self.debounce_timer:
+            GLib.source_remove(self.debounce_timer)
+        self.debounce_timer = GLib.timeout_add(250, self._update_from_chromium)
+
+    def _update_from_chromium(self):
+        self.debounce_timer = None
+        players = [s for s in bus.list_names() if s.startswith("org.mpris.MediaPlayer2.chromium")]
+        if not players:
+            return False
+        
+        target = players[0]
+        try:
+            obj = bus.get_object(target, "/org/mpris/MediaPlayer2")
+            props = dbus.Interface(obj, "org.freedesktop.DBus.Properties")
+            raw_meta = props.Get("org.mpris.MediaPlayer2.Player", "Metadata")
+            raw_status = str(props.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus"))
+            
+            title = str(raw_meta.get("xesam:title", "")).strip()
+            # Ignore empty transient metadata packets from Chromium
+            if not title:
+                return False
+                
+            artist = raw_meta.get("xesam:artist", [""])
+            if isinstance(artist, (list, dbus.Array)):
+                artist_str = ", ".join(str(a) for a in artist if str(a).strip())
+            else:
+                artist_str = str(artist).strip()
+                
+            album = str(raw_meta.get("xesam:album", "")).strip()
+            length = int(raw_meta.get("mpris:length", 0))
+            
+            # Persistent cover art: copy Chrome's temp file to a permanent path
+            art_url = str(raw_meta.get("mpris:artUrl", ""))
+            persistent_art_url = ""
+            if art_url.startswith("file://"):
+                src_path = art_url[7:]
+                if os.path.exists(src_path):
+                    try:
+                        shutil.copyfile(src_path, COVER_FILE)
+                        persistent_art_url = "file://" + COVER_FILE
+                    except Exception:
+                        pass
+            if not persistent_art_url and os.path.exists(COVER_FILE):
+                persistent_art_url = "file://" + COVER_FILE
+
+            # Generate unique track ID based on title and artist
+            track_hash = hashlib.md5((title + artist_str).encode("utf-8")).hexdigest()
+            track_id = f"/org/mpris/MediaPlayer2/TrackList/Track_{track_hash}"
+
+            new_meta = dbus.Dictionary({
+                "xesam:title": dbus.String(title, variant_level=1),
+                "xesam:artist": dbus.Array([dbus.String(artist_str)], signature="s", variant_level=1),
+                "xesam:album": dbus.String(album, variant_level=1),
+                "mpris:trackid": dbus.ObjectPath(track_id, variant_level=1),
+                "mpris:length": dbus.Int64(length, variant_level=1),
+            }, signature="sv")
+
+            if persistent_art_url:
+                new_meta["mpris:artUrl"] = dbus.String(persistent_art_url, variant_level=1)
+
+            self.status = raw_status
+            self.metadata = new_meta
+
+            # Emit clean single PropertiesChanged signal
+            changed_props = dbus.Dictionary({
+                "PlaybackStatus": dbus.String(self.status, variant_level=1),
+                "Metadata": new_meta
+            }, signature="sv")
+            
+            self.PropertiesChanged("org.mpris.MediaPlayer2.Player", changed_props, dbus.Array([], signature="s"))
+        except Exception as e:
+            pass
+        return False
+
+    def _get_system_volume(self):
+        try:
+            res = subprocess.run(["pamixer", "--get-volume"], stdout=subprocess.PIPE, text=True, check=False)
+            val = int(res.stdout.strip())
+            return float(val) / 100.0
+        except Exception:
+            return 1.0
+
+    # MPRIS root & player properties
+    @dbus.service.method("org.freedesktop.DBus.Properties", in_signature="ss", out_signature="v")
+    def Get(self, iface, prop):
+        return self.GetAll(iface).get(prop, dbus.String(""))
+
+    @dbus.service.method("org.freedesktop.DBus.Properties", in_signature="ssv")
+    def Set(self, iface, prop, val):
+        if iface == "org.mpris.MediaPlayer2.Player" and prop == "Volume":
+            try:
+                vol_int = int(float(val) * 100)
+                subprocess.run(["pamixer", "--set-volume", str(vol_int)], check=False)
+            except Exception:
+                pass
+
+    @dbus.service.method("org.freedesktop.DBus.Properties", in_signature="s", out_signature="a{sv}")
+    def GetAll(self, iface):
+        if iface == "org.mpris.MediaPlayer2":
+            return {
+                "Identity": dbus.String("VK Музыка", variant_level=1),
+                "CanQuit": dbus.Boolean(False, variant_level=1),
+                "CanRaise": dbus.Boolean(False, variant_level=1),
+                "HasTrackList": dbus.Boolean(False, variant_level=1),
+                "SupportedUriSchemes": dbus.Array([], signature="s", variant_level=1),
+                "SupportedMimeTypes": dbus.Array([], signature="s", variant_level=1),
+            }
+        elif iface == "org.mpris.MediaPlayer2.Player":
+            return {
+                "PlaybackStatus": dbus.String(self.status, variant_level=1),
+                "Metadata": self.metadata,
+                "Volume": dbus.Double(self._get_system_volume(), variant_level=1),
+                "CanControl": dbus.Boolean(True, variant_level=1),
+                "CanPlay": dbus.Boolean(True, variant_level=1),
+                "CanPause": dbus.Boolean(True, variant_level=1),
+                "CanGoNext": dbus.Boolean(True, variant_level=1),
+                "CanGoPrevious": dbus.Boolean(True, variant_level=1),
+                "CanSeek": dbus.Boolean(False, variant_level=1),
+            }
+        return {}
+
+    @dbus.service.signal("org.freedesktop.DBus.Properties", signature="sa{sv}as")
+    def PropertiesChanged(self, iface, changed, invalidated):
+        pass
+
+    # Forward player controls to Chromium
+    def _call_chromium(self, method):
+        players = [s for s in bus.list_names() if s.startswith("org.mpris.MediaPlayer2.chromium")]
+        if players:
+            try:
+                obj = bus.get_object(players[0], "/org/mpris/MediaPlayer2")
+                getattr(dbus.Interface(obj, "org.mpris.MediaPlayer2.Player"), method)()
+            except Exception:
+                pass
+
+    @dbus.service.method("org.mpris.MediaPlayer2.Player")
+    def Next(self):
+        self._call_chromium("Next")
+
+    @dbus.service.method("org.mpris.MediaPlayer2.Player")
+    def Previous(self):
+        self._call_chromium("Previous")
+
+    @dbus.service.method("org.mpris.MediaPlayer2.Player")
+    def PlayPause(self):
+        self._call_chromium("PlayPause")
+
+    @dbus.service.method("org.mpris.MediaPlayer2.Player")
+    def Play(self):
+        self._call_chromium("Play")
+
+    @dbus.service.method("org.mpris.MediaPlayer2.Player")
+    def Pause(self):
+        self._call_chromium("Pause")
+
+    @dbus.service.method("org.mpris.MediaPlayer2.Player")
+    def Stop(self):
+        self._call_chromium("Stop")
+
+def main():
+    player = VKPlayer()
+    GLib.MainLoop().run()
+
+if __name__ == "__main__":
+    main()
