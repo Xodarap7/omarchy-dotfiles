@@ -16,5 +16,5 @@ git clone <URL_РЕПОЗИТОРИЯ> ~/omarchy-dotfiles
 ./config/omarchy-sync/omarchy-sync restore
 ```
 
-3. Для восстановления секретов (SSH, Telegram, Keyring, Wi-Fi):
+3. Для восстановления секретов (SSH, Keyring, Wi-Fi):
 Скопируйте `secrets-bundle.tar.gz` в домашнюю директорию и выберите пункт `Секреты и сессии` в мастере восстановления.

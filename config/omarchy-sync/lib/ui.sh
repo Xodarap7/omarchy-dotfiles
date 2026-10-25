@@ -118,11 +118,10 @@ ui_select_packages() {
 }
 
 ui_select_secrets() {
-    ui_section "Секреты и сессии (из архива secrets-bundle.tar.gz)"
+    ui_section "Секреты и авторизации (из архива secrets-bundle.tar.gz)"
     gum choose --no-limit \
-        --selected="ssh (SSH ключи id_rsa),telegram (Сессия TelegramDesktop tdata),keyrings (Системная связка паролей),opencode_auth (Авторизация Opencode auth.json),wifi (Профили Wi-Fi сетей)" \
+        --selected="ssh (SSH ключи id_rsa),keyrings (Системная связка паролей),opencode_auth (Авторизация Opencode auth.json),wifi (Профили Wi-Fi сетей)" \
         "ssh (SSH ключи id_rsa)" \
-        "telegram (Сессия TelegramDesktop tdata)" \
         "keyrings (Системная связка паролей)" \
         "opencode_auth (Авторизация Opencode auth.json)" \
         "wifi (Профили Wi-Fi сетей)"
