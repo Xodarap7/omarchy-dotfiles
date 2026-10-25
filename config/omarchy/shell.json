@@ -5,8 +5,8 @@
     "layout": {
       "center": [
         {
-          "format": "d MMMM yyyy, HH:mm:ss",
-          "formatAlt": "d MMMM yyyy HH:mm:ss",
+          "format": "dd.MM.yy, HH:mm:ss",
+          "formatAlt": "dd.MM.yy HH:mm:ss",
           "id": "yar.clock",
           "verticalFormat": "HH\n—\nmm\n—\nss"
         },

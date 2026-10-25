@@ -115,6 +115,28 @@ def discover_hwmon():
         except Exception:
             pass
 
+    if not cpu_path:
+        for tz in glob.glob("/sys/class/thermal/thermal_zone*/temp"):
+            try:
+                with open(tz) as tf:
+                    t = int(tf.read().strip()) / 1000.0
+                    if 15 <= t <= 110:
+                        cpu_path = tz
+                        break
+            except Exception:
+                pass
+
+    if not cpu_path:
+        for t in glob.glob("/sys/class/hwmon/hwmon*/temp*_input"):
+            try:
+                with open(t) as tf:
+                    val = int(tf.read().strip()) / 1000.0
+                    if 15 <= val <= 110:
+                        cpu_path = t
+                        break
+            except Exception:
+                pass
+
     ram_paths = []
     for p in glob.glob("/sys/class/hwmon/hwmon*/name"):
         try:

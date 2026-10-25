@@ -29,9 +29,27 @@ BarWidget {
   readonly property color foreground: bar ? bar.barForeground : Commons.Color.foreground
 
   // 190 + the island's 2 x 10 px padding = 210 logical px.
-  visible: hasMedia
-  implicitWidth: hasMedia ? 190 : 0
+  visible: true
+  implicitWidth: hasMedia ? 190 : 28
   implicitHeight: barSize
+
+  Text {
+    anchors.centerIn: parent
+    visible: !root.hasMedia
+    text: "󰎆"
+    color: root.foreground
+    font.family: bar ? bar.fontFamily : Style.font.family
+    font.pixelSize: Style.font.body + 2
+    opacity: 0.7
+    renderType: Text.NativeRendering
+  }
+
+  MouseArea {
+    anchors.fill: parent
+    visible: !root.hasMedia
+    cursorShape: Qt.PointingHandCursor
+    onClicked: if (root.bar && typeof root.bar.run === "function") root.bar.run("~/.local/bin/omarchy-scratchpad-music")
+  }
 
   function runAction(name) {
     var p = activePlayer
@@ -85,6 +103,7 @@ BarWidget {
 
   Row {
     id: controls
+    visible: root.hasMedia
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     spacing: Style.space(2)
@@ -113,6 +132,7 @@ BarWidget {
 
   Item {
     id: titleClip
+    visible: root.hasMedia
     anchors.left: controls.right
     anchors.leftMargin: Style.space(6)
     anchors.right: parent.right
