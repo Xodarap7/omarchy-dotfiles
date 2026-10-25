@@ -5,3 +5,4 @@
 secrets-bundle*
 .DS_Store
 
+__pycache__/
