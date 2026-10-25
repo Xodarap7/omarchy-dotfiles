@@ -1,0 +1,133 @@
+{
+  "categories": [
+    {
+      "id": "dev_tooling",
+      "name": "Разработка и контейнеры",
+      "description": "Docker, компиляторы, утилиты разработки и менеджеры версий",
+      "default_enabled": true,
+      "packages": [
+        "docker",
+        "docker-buildx",
+        "docker-compose",
+        "lazydocker",
+        "lazygit",
+        "mise-bin",
+        "clang",
+        "llvm",
+        "bazelisk",
+        "luarocks",
+        "lua51",
+        "dotnet-runtime",
+        "ruby",
+        "python-poetry-core",
+        "tree-sitter-cli"
+      ]
+    },
+    {
+      "id": "terminal_cli",
+      "name": "Терминал и консольные утилиты",
+      "description": "Ghostty, Starship, Zsh, быстрый поиск и файловые менеджеры",
+      "default_enabled": true,
+      "packages": [
+        "ghostty",
+        "foot",
+        "zsh",
+        "starship",
+        "fastfetch",
+        "btop",
+        "eza",
+        "fzf",
+        "ripgrep",
+        "fd",
+        "bat",
+        "dua-cli",
+        "zoxide",
+        "tldr",
+        "tmux",
+        "plocate",
+        "jq",
+        "inxi"
+      ]
+    },
+    {
+      "id": "desktop_apps",
+      "name": "Приложения с графическим интерфейсом (GUI)",
+      "description": "Офис, просмотрщики, графические редакторы и системные утилиты",
+      "default_enabled": true,
+      "packages": [
+        "google-chrome",
+        "libreoffice-fresh",
+        "kdenlive",
+        "obs-studio",
+        "prusa-slicer",
+        "localsend",
+        "kdeconnect",
+        "evince",
+        "nautilus",
+        "sushi",
+        "gnome-disk-utility",
+        "omacalc",
+        "omacut",
+        "omawrite"
+      ]
+    },
+    {
+      "id": "multimedia_tools",
+      "name": "Мультимедиа и работа со скриншотами",
+      "description": "MPV, захват экрана, распознавание текста и аудиоконтроль",
+      "default_enabled": true,
+      "packages": [
+        "mpv",
+        "mpv-mpris",
+        "playerctl",
+        "yt-dlp",
+        "imagemagick",
+        "tesseract",
+        "tesseract-data-eng",
+        "gpu-screen-recorder",
+        "grim",
+        "slurp",
+        "wl-clipboard",
+        "pamixer"
+      ]
+    },
+    {
+      "id": "gaming_streaming",
+      "name": "Игры и стриминг (Опционально)",
+      "description": "Steam, Heroic Games Launcher, Sunshine, джойстик",
+      "default_enabled": false,
+      "packages": [
+        "steam",
+        "heroic-games-launcher-bin",
+        "sunshine",
+        "joystickwake",
+        "tlauncher-installer"
+      ]
+    },
+    {
+      "id": "aur_custom",
+      "name": "AUR пакеты и специализированный софт",
+      "description": "Antigravity CLI, zapret, wallpicker",
+      "default_enabled": true,
+      "aur_packages": [
+        "antigravity-cli",
+        "zapret-git",
+        "wallpicker"
+      ]
+    }
+  ],
+  "hardware_dependent": {
+    "skip_on_laptop_defaults": [
+      "nvidia-open-dkms",
+      "nvidia-utils",
+      "lib32-nvidia-utils",
+      "libva-nvidia-driver",
+      "liquidctl",
+      "coolercontrol-bin"
+    ],
+    "microcode_rules": {
+      "GenuineIntel": "intel-ucode",
+      "AuthenticAMD": "amd-ucode"
+    }
+  }
+}
