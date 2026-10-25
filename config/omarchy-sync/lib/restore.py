@@ -104,7 +104,7 @@ def restore_hyprland_files(repo_dir: Path, selected_files: list):
         for item in hypr_src.iterdir():
             if item.name.startswith("monitors.lua") or ".bak" in item.name or item.name.startswith("."):
                 continue
-            if item.is_file() and ("all" in selected_files or item.name in selected_files):
+            if item.is_file():
                 copy_path(item, hypr_dst / item.name)
                 print(f" [+] Скопирован {item.name}")
 

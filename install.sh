@@ -7,7 +7,8 @@ DOTFILES_DIR="${OMARCHY_DOTFILES_DIR:-$HOME/omarchy-dotfiles}"
 
 # Авто-обновление из Git при запуске из репозитория
 if [ -d "$SCRIPT_DIR/.git" ]; then
-    git -C "$SCRIPT_DIR" pull --quiet 2>/dev/null || true
+    git -C "$SCRIPT_DIR" fetch origin master 2>/dev/null || true
+    git -C "$SCRIPT_DIR" reset --hard origin/master 2>/dev/null || true
 fi
 
 # Самоустановка / Bootstrap при запуске

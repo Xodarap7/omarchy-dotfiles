@@ -14,10 +14,12 @@ dofile((os.getenv("OMARCHY_PATH") or "/usr/share/omarchy") .. "/default/hypr/boo
 -- Обёртка ставится до загрузки дефолтов, поэтому биндинги сразу получают
 -- переведённое описание.
 require("default.hypr.helpers")
-local descriptions_ru = require("hypr.descriptions_ru")
-local omarchy_bind = o.bind
-o.bind = function(keys, description, dispatcher, options)
-  return omarchy_bind(keys, descriptions_ru.translate(description), dispatcher, options)
+local ok, descriptions_ru = pcall(require, "hypr.descriptions_ru")
+if ok and descriptions_ru and type(descriptions_ru.translate) == "function" then
+  local omarchy_bind = o.bind
+  o.bind = function(keys, description, dispatcher, options)
+    return omarchy_bind(keys, descriptions_ru.translate(description), dispatcher, options)
+  end
 end
 
 -- Load Omarchy defaults.
