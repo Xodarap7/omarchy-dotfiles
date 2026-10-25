@@ -1,0 +1,27 @@
+{
+  "allowNonWorkspaceAccess": true,
+  "model": "Gemini 3.8 Flash (Medium)",
+  "permissions": {
+    "allow": [
+      "command(ps)",
+      "command(agy)",
+      "command(ls)",
+      "command(omarchy)",
+      "command(grep)",
+      "command(which omarchy-agent \u0026\u0026 cat $(which omarchy-agent))",
+      "command(which)",
+      "command(find ~/.config /etc /usr/share/omarchy -name \"*tmux*\" 2\u003e/dev/null)",
+      "command(file)",
+      "command(cat)",
+      "command(strings)",
+      "command(echo)",
+      "command(/usr/share/omarchy/bin/omarchy-menu-tmux-keybindings)",
+      "command(head)",
+      "command(identify)"
+    ]
+  },
+  "trustedWorkspaces": [
+    "/home/yar",
+    "/home/yar/Work"
+  ]
+}

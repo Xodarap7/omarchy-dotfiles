@@ -7,8 +7,8 @@ DOTFILES_DIR="${OMARCHY_DOTFILES_DIR:-$HOME/omarchy-dotfiles}"
 
 # Авто-обновление из Git при запуске из репозитория
 if [ -d "$SCRIPT_DIR/.git" ]; then
-    git -C "$SCRIPT_DIR" fetch origin master 2>/dev/null || true
-    git -C "$SCRIPT_DIR" reset --hard origin/master 2>/dev/null || true
+    git -C "$SCRIPT_DIR" fetch https://github.com/Xodarap7/omarchy-dotfiles.git master 2>/dev/null || git -C "$SCRIPT_DIR" fetch origin master 2>/dev/null || true
+    git -C "$SCRIPT_DIR" reset --hard FETCH_HEAD 2>/dev/null || git -C "$SCRIPT_DIR" reset --hard origin/master 2>/dev/null || true
 fi
 
 # Самоустановка / Bootstrap при запуске
@@ -32,21 +32,42 @@ cmd_restore_autonomous() {
         repo_path="$SCRIPT_DIR"
     fi
 
-    echo "⚡ Запуск автономного полного восстановления..."
+    local profile="${1:-}"
+    if [ -z "$profile" ]; then
+        local choice
+        choice="$(gum choose --header="Выберите вариант конфигурации системы:" \
+            "💻 Ноутбучный вариант (5 рабочих столов, адаптивный бар, CPU/RAM без GPU)" \
+            "🖥️ Полная копия ПК (8 рабочих столов, полный бар с GPU и VRAM)")"
+        if [[ "$choice" =~ "Ноутбучный" ]]; then
+            profile="laptop"
+        else
+            profile="desktop"
+        fi
+    fi
+
+    echo "⚡ Запуск автономного полного восстановления [Профиль: $profile]..."
     
-    # 1. Применяем конфигурации
+    # 1. Установка официальных системных пакетов из pacman/omarchy
+    if [ -f "$repo_path/manifests/packages.json" ]; then
+        echo "📦 Проверка и установка официальных системных пакетов..."
+        python3 "$SYNC_DIR/lib/pkg_manager.py" "$repo_path/manifests/packages.json" "dev_tooling,terminal_cli,desktop_apps,multimedia_tools,aur_custom" || true
+    fi
+
+    # 2. Применяем базовые конфигурации и оверлей профиля
     python3 -c "
 import sys
 from pathlib import Path
 sys.path.append('$SYNC_DIR/lib')
 import restore
-restore.restore_all_autonomous(Path(sys.argv[1]))
-" "$repo_path"
+restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
+" "$repo_path" "$profile"
 
-    # 2. Авто-поиск и применение архива секретов
+    # 3. Авто-поиск и применение архива секретов
     local sec_found=""
     if [ -f "$HOME/secrets-bundle.tar.gz" ]; then
         sec_found="$HOME/secrets-bundle.tar.gz"
+    elif [ -f "$SCRIPT_DIR/secrets-bundle.tar.gz" ]; then
+        sec_found="$SCRIPT_DIR/secrets-bundle.tar.gz"
     else
         for u in /run/media/*/*; do
             if [ -f "$u/secrets-bundle.tar.gz" ]; then
@@ -59,9 +80,16 @@ restore.restore_all_autonomous(Path(sys.argv[1]))
     if [ -n "$sec_found" ]; then
         echo " [+] Автоматически обнаружен архив секретов: $sec_found"
         restore_secrets_archive "$sec_found" "all"
+    else
+        echo ""
+        gum style --foreground 214 --bold "⚠️ Внимание: архив secrets-bundle.tar.gz не обнаружен в ~ или на USB-носителе!"
+        echo "   Токены авторизации Opencode (Deepseek API) и SSH-ключи будут активны"
+        echo "   после того, как вы скопируете secrets-bundle.tar.gz и выполните:"
+        echo "   omarchy-sync secrets-restore ~/secrets-bundle.tar.gz"
+        echo ""
     fi
 
-    # 3. Авто-поиск архива interprocom
+    # 4. Авто-поиск архива interprocom
     local proj_found=""
     if [ -f "$HOME/interprocom-backup.tar.zst" ]; then
         proj_found="$HOME/interprocom-backup.tar.zst"
@@ -85,7 +113,7 @@ restore.restore_work_projects(Path(sys.argv[1]))
     omarchy restart shell 2>/dev/null || true
 
     echo ""
-    gum style --foreground 120 --bold "🎉 Система полностью и автономно восстановлена!"
+    gum style --foreground 120 --bold "🎉 Система полностью и автономно восстановлена [Профиль: $profile]!"
     echo "Все файлы разложены по местам, хоткеи, виджеты и темы активны."
 }
 
@@ -329,6 +357,12 @@ cmd_backup_projects() {
 ACTION="${1:-}"
 
 case "$ACTION" in
+    laptop|--laptop)
+        cmd_restore_autonomous "laptop"
+        ;;
+    desktop|--desktop)
+        cmd_restore_autonomous "desktop"
+        ;;
     backup|--backup|-b)
         cmd_backup
         ;;

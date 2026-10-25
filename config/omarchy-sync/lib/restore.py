@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 HOME = Path.home()
@@ -10,9 +12,15 @@ def copy_path(src: Path, dst: Path, ignore_patterns=None):
     if not src.exists():
         return False
     dst.parent.mkdir(parents=True, exist_ok=True)
-    if src.is_dir():
-        if dst.exists():
+    if dst.exists():
+        if dst.is_dir():
             shutil.rmtree(dst)
+        else:
+            try:
+                dst.unlink()
+            except Exception:
+                pass
+    if src.is_dir():
         shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*(ignore_patterns or [])))
     else:
         shutil.copy2(src, dst)
@@ -27,12 +35,12 @@ def restore_shell_widgets(repo_dir: Path, selected_widget_ids: list):
     with open(master_shell_path, "r", encoding="utf-8") as f:
         master_shell = json.load(f)
 
-    # 1. Всегда гарантируем наличие ВСЕХ плагинов (включая yar.bar, yar.clock, yar.player и т.д.)
+    # 1. Копируем все плагины бара
     repo_plugins = repo_dir / "config/omarchy/plugins"
     target_plugins = HOME / ".config/omarchy/plugins"
     if repo_plugins.exists():
         copy_path(repo_plugins, target_plugins, ignore_patterns=["*.bak*"])
-        print(" [+] Все плагины бара (включая yar.bar с плавающими блоками и скруглениями) скопированы.")
+        print(" [+] Базовые плагины бара скопированы.")
 
     # Копируем расширения
     repo_ext = repo_dir / "config/omarchy/extensions"
@@ -53,11 +61,34 @@ def restore_shell_widgets(repo_dir: Path, selected_widget_ids: list):
                     new_layout[section].append(item)
         target_shell["bar"]["layout"] = new_layout
 
-    # Записываем результирующий shell.json
     target_shell_path.parent.mkdir(parents=True, exist_ok=True)
     with open(target_shell_path, "w", encoding="utf-8") as f:
         json.dump(target_shell, f, indent=2, ensure_ascii=False)
     print(" [+] Сформирован shell.json.")
+
+    return True
+
+def restore_profile(repo_dir: Path, profile_name: str = "laptop"):
+    print(f"=== Применение профиля системы: {profile_name.upper()} ===")
+    profile_dir = repo_dir / "profiles" / profile_name
+    if not profile_dir.exists():
+        print(f" [!] Каталог профиля {profile_dir} не найден, пропускаем оверлей.")
+        return False
+
+    plugins_overlay = profile_dir / "plugins"
+    target_plugins = HOME / ".config/omarchy/plugins"
+    if plugins_overlay.exists():
+        for plugin in plugins_overlay.iterdir():
+            if plugin.is_dir():
+                target_dest = target_plugins / plugin.name
+                target_dest.mkdir(parents=True, exist_ok=True)
+                for item in plugin.rglob("*"):
+                    if item.is_file():
+                        rel = item.relative_to(plugin)
+                        dest_file = target_dest / rel
+                        dest_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(item, dest_file)
+                print(f" [+] Профиль '{profile_name}': применен оверлей для {plugin.name}")
 
     return True
 
@@ -69,7 +100,6 @@ def restore_hyprland_files(repo_dir: Path, selected_files: list):
 
     if hypr_src.exists():
         for item in hypr_src.iterdir():
-            # monitors.lua не перезаписываем чтобы не ломать дисплей ноутбука
             if item.name.startswith("monitors.lua") or ".bak" in item.name or item.name.startswith("."):
                 continue
             if item.is_file():
@@ -85,9 +115,8 @@ def restore_themes_and_wallpapers(repo_dir: Path, restore_themes: bool, restore_
         copy_path(repo_dir / "config/omarchy/themes", HOME / ".config/omarchy/themes")
         copy_path(repo_dir / "config/omarchy/current", HOME / ".config/omarchy/current")
         print(" [+] Темы оформления скопированы.")
-        # Применяем тему системным переключателем Omarchy
         print(" [+] Активация темы Cyber Phuket...")
-        subprocess.run(["omarchy", "theme", "set", "Cyber Phuket"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["omarchy", "theme", "set", "cyber-phuket"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     if restore_backgrounds:
         copy_path(repo_dir / "config/omarchy/backgrounds", HOME / ".config/omarchy/backgrounds")
@@ -100,12 +129,19 @@ def restore_dev_and_ai(repo_dir: Path, selected_tools: list):
         copy_path(repo_dir / "dev/gemini/rules", gemini_target / "rules")
         copy_path(repo_dir / "dev/gemini/skills", gemini_target / "skills")
         copy_path(repo_dir / "dev/gemini/sounds", gemini_target / "sounds")
-        print(" [+] Antigravity: правила, скиллы и звуковые темы восстановлены.")
+        if (repo_dir / "dev/gemini/settings.json").exists():
+            copy_path(repo_dir / "dev/gemini/settings.json", gemini_target / "settings.json")
+        print(" [+] Antigravity: правила, скиллы, звуки и настройки восстановлены.")
 
     if "opencode" in selected_tools or "all" in selected_tools:
         opencode_dst = HOME / ".config/opencode"
         copy_path(repo_dir / "dev/opencode/opencode.json", opencode_dst / "opencode.json")
         copy_path(repo_dir / "dev/opencode/plugins", opencode_dst / "plugins")
+        if (repo_dir / "config/mise/config.toml").exists():
+            copy_path(repo_dir / "config/mise/config.toml", HOME / ".config/mise/config.toml")
+        if shutil.which("mise"):
+            print(" [+] Установка инструментов mise (opencode, python, node)...")
+            subprocess.run(["mise", "install", "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(" [+] Opencode: модель deepseek-flash и плагины настроены.")
 
     if "git" in selected_tools or "all" in selected_tools:
@@ -121,11 +157,15 @@ def restore_dev_and_ai(repo_dir: Path, selected_tools: list):
         copy_path(repo_dir / "shell/bashrc", HOME / ".bashrc")
         copy_path(repo_dir / "config/environment.d", HOME / ".config/environment.d")
 
-        # Проверяем наличие Oh My Zsh
+        # Oh My Zsh + zsh-autosuggestions
         zsh_dir = HOME / ".oh-my-zsh"
         if not zsh_dir.exists():
             print(" [+] Установка Oh My Zsh с GitHub...")
             subprocess.run(["git", "clone", "--depth=1", "https://github.com/ohmyzsh/ohmyzsh.git", str(zsh_dir)])
+        zsh_auto = zsh_dir / "custom/plugins/zsh-autosuggestions"
+        if not zsh_auto.exists():
+            print(" [+] Установка плагина zsh-autosuggestions...")
+            subprocess.run(["git", "clone", "--depth=1", "https://github.com/zsh-users/zsh-autosuggestions.git", str(zsh_auto)])
         print(" [+] Терминал Ghostty, Starship, Zsh и Oh My Zsh настроены.")
 
 def restore_user_scripts(repo_dir: Path, selected_scripts: list):
@@ -146,39 +186,111 @@ def restore_user_scripts(repo_dir: Path, selected_scripts: list):
     if sysd_src.exists():
         copy_path(sysd_src, HOME / ".config/systemd/user")
         subprocess.run(["systemctl", "--user", "daemon-reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # Включаем и запускаем фоновые службы виджетов
         subprocess.run(["systemctl", "--user", "enable", "--now", "omarchy-sysinfo.service", "vk-mpris-bridge.service", "ag-unlocker-watchdog.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(" [+] Пользовательские службы (мониторинг sysinfo, MPRIS bridge) активированы.")
 
-def install_official_apps():
+def restore_desktop_apps_and_icons(repo_dir: Path):
+    print("=== Восстановление ярлыков и иконок приложений ===")
+    apps_src = repo_dir / "desktop/applications"
+    icons_src = repo_dir / "desktop/icons"
+    apps_dst = HOME / ".local/share/applications"
+    icons_dst = HOME / ".local/share/icons/hicolor/256x256/apps"
+
+    apps_dst.mkdir(parents=True, exist_ok=True)
+    icons_dst.mkdir(parents=True, exist_ok=True)
+
+    if apps_src.exists():
+        for item in apps_src.iterdir():
+            if item.is_file():
+                copy_path(item, apps_dst / item.name)
+        print(" [+] Ярлыки .desktop скопированы в ~/.local/share/applications.")
+
+    if icons_src.exists():
+        for item in icons_src.iterdir():
+            if item.is_file():
+                copy_path(item, icons_dst / item.name)
+        print(" [+] Иконки скопированы в ~/.local/share/icons.")
+
+    subprocess.run(["update-desktop-database", str(apps_dst)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def install_official_apps(repo_dir: Path):
     print("=== Проверка и установка официальных приложений ===")
 
     # 1. Telegram Desktop
     tg_bin = HOME / ".local/bin/telegram"
     if not tg_bin.exists():
-        print(" [+] Скачивание официального Telegram Desktop...")
-        cmd = "curl -sSL 'https://telegram.org/dl/desktop/linux' | tar -xJ -C ~/.local/share/ 2>/dev/null && ln -sf ~/.local/share/Telegram/Telegram ~/.local/bin/telegram"
-        subprocess.run(cmd, shell=True)
-        print("✔ Telegram Desktop установлен.")
+        print(" [+] Установка официального Telegram Desktop...")
+        # Сначала пробуем через официальный репозиторий pacman
+        res = subprocess.run(["sudo", "pacman", "-S", "--needed", "--noconfirm", "telegram-desktop"])
+        if res.returncode == 0 and Path("/usr/bin/telegram-desktop").exists():
+            tg_bin.symlink_to("/usr/bin/telegram-desktop")
+            print("✔ Telegram Desktop успешно установлен через официальный pacman.")
+        else:
+            print(" [+] Скачивание официального бинарника Telegram с официального сайта...")
+            cmd = "curl -sSL 'https://telegram.org/dl/desktop/linux' | tar -xJ -C ~/.local/share/ 2>/dev/null && ln -sf ~/.local/share/Telegram/Telegram ~/.local/bin/telegram"
+            subprocess.run(cmd, shell=True)
+            print("✔ Telegram Desktop установлен.")
     else:
         print("✔ Telegram Desktop уже присутствует.")
 
     # 2. Antigravity CLI
-    if not shutil.which("antigravity") and not (HOME / ".local/bin/antigravity").exists():
-        print(" [+] Установка официального Antigravity CLI...")
+    agy_found = shutil.which("agy") or shutil.which("antigravity") or (HOME / ".local/bin/agy").exists()
+    if not agy_found:
+        print(" [+] Установка официального Antigravity CLI с Google...")
         subprocess.run("curl -fsSL https://antigravity.google/cli/install.sh | bash", shell=True)
+        # Гарантируем наличие симлинка ~/.local/bin/antigravity -> agy
+        agy_path = shutil.which("agy") or (HOME / ".local/bin/agy")
+        if agy_path and not (HOME / ".local/bin/antigravity").exists():
+            (HOME / ".local/bin/antigravity").symlink_to(agy_path)
         print("✔ Antigravity CLI установлен.")
     else:
         print("✔ Antigravity CLI уже присутствует.")
+        agy_path = shutil.which("agy") or (HOME / ".local/bin/agy")
+        if agy_path and not (HOME / ".local/bin/antigravity").exists():
+            (HOME / ".local/bin/antigravity").symlink_to(agy_path)
 
-    # 3. Antigravity IDE (если архив подготовлен)
-    ide_archive = HOME / "antigravity-ide.tar.zst"
-    if ide_archive.exists() and not (HOME / ".local/share/antigravity-ide").exists():
-        print(" [+] Распаковка Antigravity IDE...")
-        subprocess.run(["tar", "-xvf", str(ide_archive), "-C", str(HOME / ".local/share")])
-        (HOME / ".local/bin/antigravity-ide").unlink(missing_ok=True)
-        (HOME / ".local/bin/antigravity-ide").symlink_to(HOME / ".local/share/antigravity-ide/bin/antigravity-ide")
-        print("✔ Antigravity IDE установлена.")
+    # 3. Antigravity IDE
+    ide_target = HOME / ".local/share/antigravity-ide"
+    if not ide_target.exists():
+        # Поиск архива IDE в домашней папке, на флешках или на ПК
+        candidates = [
+            HOME / "antigravity-ide.tar.zst",
+            HOME / "Downloads/Antigravity IDE.tar.gz"
+        ]
+        for u in Path("/run/media").glob("*/*"):
+            candidates.append(u / "antigravity-ide.tar.zst")
+
+        found_archive = None
+        for c in candidates:
+            if c.exists():
+                found_archive = c
+                break
+
+        if not found_archive:
+            # Пробуем rsync с основного ПК по локальной сети
+            print(" [+] Проверка наличия архива Antigravity IDE на основном ПК (192.168.1.170)...")
+            r = subprocess.run(["rsync", "-e", "ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no", "-P", "yar@192.168.1.170:~/antigravity-ide.tar.zst", str(HOME / "antigravity-ide.tar.zst")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if r.returncode == 0 and (HOME / "antigravity-ide.tar.zst").exists():
+                found_archive = HOME / "antigravity-ide.tar.zst"
+
+        if found_archive:
+            print(f" [+] Распаковка Antigravity IDE из {found_archive}...")
+            ide_target.parent.mkdir(parents=True, exist_ok=True)
+            if str(found_archive).endswith(".zst"):
+                subprocess.run(["tar", "--zstd", "-xvf", str(found_archive), "-C", str(ide_target.parent)])
+            else:
+                subprocess.run(["tar", "-xvf", str(found_archive), "-C", str(ide_target.parent)])
+            (HOME / ".local/bin/antigravity-ide").unlink(missing_ok=True)
+            (HOME / ".local/bin/antigravity-ide").symlink_to(ide_target / "bin/antigravity-ide")
+            print("✔ Antigravity IDE распакована и привязана.")
+        else:
+            print(" [!] Внимание: архив antigravity-ide.tar.zst не найден. Скопируйте его с ПК для работы IDE.")
+
+    # Настройки Antigravity IDE
+    if (repo_dir / "dev/antigravity-ide/settings.json").exists():
+        ide_cfg = HOME / ".config/Antigravity IDE/User"
+        ide_cfg.mkdir(parents=True, exist_ok=True)
+        copy_path(repo_dir / "dev/antigravity-ide/settings.json", ide_cfg / "settings.json")
 
 def restore_work_projects(archive_path: Path):
     print(f"=== Восстановление рабочих проектов из {archive_path} ===")
@@ -194,8 +306,8 @@ def restore_work_projects(archive_path: Path):
     print("✔ Рабочие проекты interprocom и odoo_projects успешно восстановлены.")
     return True
 
-def restore_all_autonomous(repo_dir: Path):
-    print("🚀 === Автономное полное восстановление системы ===")
+def restore_all_autonomous(repo_dir: Path, profile: str = "laptop"):
+    print(f"🚀 === Автономное полное восстановление системы [ПРОФИЛЬ: {profile.upper()}] ===")
 
     # 1. Hyprland
     restore_hyprland_files(repo_dir, ["all"])
@@ -203,19 +315,25 @@ def restore_all_autonomous(repo_dir: Path):
     # 2. Виджеты, плагины и кастомный бар (yar.bar)
     restore_shell_widgets(repo_dir, ["all"])
 
-    # 3. Темы и обои + активация Cyber Phuket
+    # 3. Применение профиля (ноутбучный или десктопный оверлей)
+    restore_profile(repo_dir, profile)
+
+    # 4. Темы и обои + активация Cyber Phuket
     restore_themes_and_wallpapers(repo_dir, True, True)
 
-    # 4. Среда разработки, Opencode, Git, Shell, Oh My Zsh
+    # 5. Среда разработки, Opencode, Git, Shell, Oh My Zsh
     restore_dev_and_ai(repo_dir, ["all"])
 
-    # 5. Пользовательские скрипты и демоны
+    # 6. Пользовательские скрипты и демоны
     restore_user_scripts(repo_dir, ["all"])
 
-    # 6. Официальные приложения (Telegram, Antigravity)
-    install_official_apps()
+    # 7. Ярлыки приложений и иконки
+    restore_desktop_apps_and_icons(repo_dir)
 
-    # 7. Перезапуск интерфейса
+    # 8. Официальные приложения (Telegram, Antigravity)
+    install_official_apps(repo_dir)
+
+    # 9. Перезапуск интерфейса
     subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["omarchy", "restart", "shell"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

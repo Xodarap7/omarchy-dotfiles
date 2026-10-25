@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=VK Музыка
+Comment=VK Музыка WebApp
+Exec=omarchy-launch-webapp "https://vk.com/audio"
+Terminal=false
+Type=Application
+Icon=vk-music
+StartupNotify=true
+StartupWMClass=chrome-vk.com__audio-Default
+Categories=AudioVideo;Audio;Player;

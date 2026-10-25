@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Antigravity IDE
+GenericName=Agentic IDE
+Comment=Agentic code editor from Google
+Exec=/home/yar/.local/share/antigravity-ide/antigravity-ide %F
+Icon=antigravity-ide
+Terminal=false
+Categories=Development;IDE;TextEditor;
+StartupNotify=true
+StartupWMClass=antigravity-ide
+Actions=new-empty-window;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=/home/yar/.local/share/antigravity-ide/antigravity-ide --new-window %F

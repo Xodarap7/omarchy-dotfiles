@@ -1,0 +1,28 @@
+{
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/bazel-*/**": true,
+    "**/.cache/**": true
+  },
+  "terminal.integrated.commandsToSkipShell": [
+    "kilo-code.new.agentManagerOpen",
+    "kilo-code.new.agentManager.showTerminal",
+    "kilo-code.new.agentManager.previousTerminal",
+    "kilo-code.new.agentManager.nextTerminal"
+  ],
+  "kilo-code.new.agentWorkStyle": "autonomous",
+  "kilo-code.new.showTaskTimeline": true,
+  "kilo-code.new.showAutoApprovalReason": false,
+  "window.menuBarVisibility": "compact",
+  "workbench.auxiliaryActivityBar.location": "default",
+  "kilo-code.new.attention.enabled": true,
+  "kilo-code.new.attention.sound": "yup-03",
+  "kilo-code.new.autocomplete.enableAutoTrigger": false,
+  "kilo-code.new.languageCommitMessage": "ru",
+  "kilo-code.new.language": "ru",
+  "python.languageServer": "Default",
+  "files.autoSave": "afterDelay",
+  "makefile.configureOnOpen": true
+}

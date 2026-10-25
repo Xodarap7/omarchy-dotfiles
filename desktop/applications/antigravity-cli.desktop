@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Antigravity CLI
+Comment=Antigravity CLI (agy) in terminal
+Exec=xdg-terminal-exec agy
+Icon=antigravity-ide
+Terminal=false
+Categories=Development;
+StartupNotify=false

@@ -55,6 +55,7 @@
       "description": "Офис, просмотрщики, графические редакторы и системные утилиты",
       "default_enabled": true,
       "packages": [
+        "telegram-desktop",
         "google-chrome",
         "libreoffice-fresh",
         "kdenlive",
@@ -99,9 +100,7 @@
       "packages": [
         "steam",
         "heroic-games-launcher-bin",
-        "sunshine",
-        "joystickwake",
-        "tlauncher-installer"
+        "sunshine"
       ]
     },
     {

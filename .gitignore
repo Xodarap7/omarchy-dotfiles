@@ -4,3 +4,5 @@
 *.tar.zst
 secrets-bundle*
 .DS_Store
+__pycache__/
+*.pyc
