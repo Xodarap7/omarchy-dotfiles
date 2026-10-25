@@ -28,10 +28,10 @@ hl.unbind("SUPER + CTRL + SPACE")
 hl.unbind("SUPER + SHIFT + CTRL + SPACE")
 
 -- Antigravity CLI
-o.bind("SUPER + A", "Antigravity CLI", { tui = "/usr/local/bin/agy" })
+o.bind("SUPER + A", "Antigravity CLI", { tui = "agy" })
 
 -- OpenCode TUI
-o.bind("SUPER + ALT + A", "OpenCode", { tui = "/home/yar/.local/bin/opencode" })
+o.bind("SUPER + ALT + A", "OpenCode", { tui = "opencode" })
 
 -- Antigravity IDE (ранее SUPER + SHIFT + A было привязано к ChatGPT)
 hl.unbind("SUPER + SHIFT + A")

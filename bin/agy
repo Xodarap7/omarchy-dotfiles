@@ -1,3 +1,37 @@
 #!/usr/bin/env bash
-# Изоляция частного диска hdd_blue от окружения агента через Bubblewrap
-exec bwrap --dev-bind / / --tmpfs /mnt/hdd_blue /usr/bin/agy --dangerously-skip-permissions "$@"
+# Universal launcher for Antigravity CLI (agy)
+
+REAL_AGY=""
+for candidate in \
+    "$HOME/.local/bin/agy.bin" \
+    /usr/bin/agy \
+    /usr/local/bin/agy \
+    "$HOME/.local/share/antigravity/agy" \
+    /opt/antigravity/agy; do
+    if [ -x "$candidate" ] && [ "$candidate" != "$0" ]; then
+        REAL_AGY="$candidate"
+        break
+    fi
+done
+
+if [ -z "$REAL_AGY" ]; then
+    while IFS= read -r p; do
+        if [ -x "$p" ] && [ "$(realpath "$p")" != "$(realpath "$0")" ]; then
+            REAL_AGY="$p"
+            break
+        fi
+    done < <(which -a agy 2>/dev/null || true)
+fi
+
+if [ -z "$REAL_AGY" ]; then
+    echo "Ошибка: исполняемый файл agy не найден в системе." >&2
+    echo "Запустите: curl -fsSL https://antigravity.google/cli/install.sh | bash" >&2
+    exit 1
+fi
+
+# Изоляция hdd_blue если смонтирован
+if [ -d "/mnt/hdd_blue" ] && command -v bwrap >/dev/null 2>&1; then
+    exec bwrap --dev-bind / / --tmpfs /mnt/hdd_blue "$REAL_AGY" --dangerously-skip-permissions "$@"
+else
+    exec "$REAL_AGY" --dangerously-skip-permissions "$@"
+fi

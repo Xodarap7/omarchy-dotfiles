@@ -90,6 +90,19 @@ def restore_profile(repo_dir: Path, profile_name: str = "laptop"):
                         shutil.copy2(item, dest_file)
                 print(f" [+] Профиль '{profile_name}': применен оверлей для {plugin.name}")
 
+    if profile_name == "laptop":
+        laptop_bg = HOME / ".config/omarchy/themes/cyber-phuket/backgrounds/phuket-cyberpunk-laptop-right.jpg"
+        if laptop_bg.exists():
+            current_bg = HOME / ".local/state/omarchy/current/background"
+            current_bg.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                current_bg.unlink(missing_ok=True)
+                current_bg.symlink_to(laptop_bg)
+                subprocess.run(["omarchy", "restart", "background"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print(" [+] Профиль 'laptop': установлены обои правой части (phuket-cyberpunk-laptop-right.jpg)")
+            except Exception as e:
+                print(f" [!] Ошибка установки обоев ноутбука: {e}")
+
     return True
 
 def restore_hyprland_files(repo_dir: Path, selected_files: list):
@@ -131,7 +144,11 @@ def restore_dev_and_ai(repo_dir: Path, selected_tools: list):
         copy_path(repo_dir / "dev/gemini/sounds", gemini_target / "sounds")
         if (repo_dir / "dev/gemini/settings.json").exists():
             copy_path(repo_dir / "dev/gemini/settings.json", gemini_target / "settings.json")
-        print(" [+] Antigravity: правила, скиллы, звуки и настройки восстановлены.")
+        usage_src = repo_dir / "dev/agents/usage"
+        usage_dst = HOME / ".local/state/omarchy/agents/usage"
+        if usage_src.exists():
+            copy_path(usage_src, usage_dst)
+        print(" [+] Antigravity: правила, скиллы, звуки и кэш лимитов восстановлены.")
 
     if "opencode" in selected_tools or "all" in selected_tools:
         opencode_dst = HOME / ".config/opencode"
@@ -234,20 +251,27 @@ def install_official_apps(repo_dir: Path):
         print("✔ Telegram Desktop уже присутствует.")
 
     # 2. Antigravity CLI
-    agy_found = shutil.which("agy") or shutil.which("antigravity") or (HOME / ".local/bin/agy").exists()
-    if not agy_found:
+    agy_bin_path = HOME / ".local/bin/agy.bin"
+    has_agy = (shutil.which("agy") and not (HOME / ".local/bin/agy").exists()) or agy_bin_path.exists() or Path("/usr/bin/agy").exists() or Path("/usr/local/bin/agy").exists()
+    if not has_agy:
         print(" [+] Установка официального Antigravity CLI с Google...")
         subprocess.run("curl -fsSL https://antigravity.google/cli/install.sh | bash", shell=True)
-        # Гарантируем наличие симлинка ~/.local/bin/antigravity -> agy
-        agy_path = shutil.which("agy") or (HOME / ".local/bin/agy")
-        if agy_path and not (HOME / ".local/bin/antigravity").exists():
-            (HOME / ".local/bin/antigravity").symlink_to(agy_path)
-        print("✔ Antigravity CLI установлен.")
-    else:
-        print("✔ Antigravity CLI уже присутствует.")
-        agy_path = shutil.which("agy") or (HOME / ".local/bin/agy")
-        if agy_path and not (HOME / ".local/bin/antigravity").exists():
-            (HOME / ".local/bin/antigravity").symlink_to(agy_path)
+        # Если скачанный бинарник лежит в ~/.local/bin/agy, перемещаем его в agy.bin
+        downloaded = HOME / ".local/bin/agy"
+        if downloaded.exists() and not downloaded.is_symlink() and downloaded.stat().st_size > 1000000:
+            downloaded.rename(agy_bin_path)
+            print(" [+] Бинарник Antigravity сохранен как ~/.local/bin/agy.bin")
+
+    # Гарантируем наличие универсального wrapper'а и symlink antigravity
+    if (repo_dir / "bin/agy").exists():
+        copy_path(repo_dir / "bin/agy", HOME / ".local/bin/agy")
+        (HOME / ".local/bin/agy").chmod(0o755)
+    (HOME / ".local/bin/antigravity").unlink(missing_ok=True)
+    (HOME / ".local/bin/antigravity").symlink_to(HOME / ".local/bin/agy")
+    print("✔ Antigravity CLI настроен.")
+
+    # Фоновое обновление кэша лимитов
+    subprocess.run(["omarchy-agent-usage-update"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # 3. Antigravity IDE
     ide_target = HOME / ".local/share/antigravity-ide"
