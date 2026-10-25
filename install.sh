@@ -166,6 +166,30 @@ restore.restore_user_scripts(Path('$repo_path'), ['all'])
         fi
     done
 
+    # 9. Обработка рабочих проектов (interprocom)
+    for cat in "${selected_cats[@]}"; do
+        if [[ "$cat" =~ "Рабочие проекты" ]]; then
+            local proj_archive="$HOME/interprocom-backup.tar.zst"
+            if [ ! -f "$proj_archive" ]; then
+                proj_archive="$HOME/interprocom-backup.tar.gz"
+            fi
+            if [ ! -f "$proj_archive" ]; then
+                proj_archive="$(gum input --value="$HOME/interprocom-backup.tar.zst" --placeholder="Путь к архиву проектов interprocom")"
+            fi
+            if [ -f "$proj_archive" ]; then
+                python3 -c "
+import sys
+from pathlib import Path
+sys.path.append('$SYNC_DIR/lib')
+import restore
+restore.restore_work_projects(Path('$proj_archive'))
+"
+            else
+                gum style --foreground 196 "Файл архива $proj_archive не найден. Пропуск восстановления проектов."
+            fi
+        fi
+    done
+
     echo ""
     gum style --foreground 120 --bold "✨ Выборочное восстановление компонентов успешно завершено!"
     echo "Интерфейс и службы обновлены."
@@ -203,12 +227,27 @@ cmd_git_push() {
     fi
 }
 
+cmd_backup_projects() {
+    ui_banner
+    local target_archive="${1:-$HOME/interprocom-backup.tar.zst}"
+    echo "=== Архивация проектов interprocom и odoo_projects ==="
+    echo "Целевой архив: $target_archive"
+    echo "Упаковываем ~/interprocom и ~/odoo_projects с сохранением прав и БД..."
+    
+    sudo tar --zstd -cvf "$target_archive" -C "$HOME" interprocom odoo_projects
+    sudo chown "$(id -u):$(id -g)" "$target_archive"
+    gum style --foreground 120 --bold "✔ Архив проектов успешно создан: $target_archive"
+}
+
 # Роутер аргументов
 ACTION="${1:-}"
 
 case "$ACTION" in
     backup|--backup|-b)
         cmd_backup
+        ;;
+    backup-projects)
+        cmd_backup_projects "${2:-$HOME/interprocom-backup.tar.zst}"
         ;;
     restore|--restore|-r)
         cmd_restore

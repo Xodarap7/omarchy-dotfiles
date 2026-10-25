@@ -164,3 +164,18 @@ def restore_user_scripts(repo_dir: Path, selected_scripts: list):
         copy_path(sysd_src, HOME / ".config/systemd/user")
         subprocess.run(["systemctl", "--user", "daemon-reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(" [+] Пользовательские юниты systemd обновлены.")
+
+def restore_work_projects(archive_path: Path):
+    print(f"=== Восстановление рабочих проектов из {archive_path} ===")
+    if not archive_path.exists():
+        print(f"ОШИБКА: Архив проектов {archive_path} не найден!")
+        return False
+
+    cmd = ["sudo", "tar", "--zstd", "-xvf", str(archive_path), "-C", str(HOME)] if str(archive_path).endswith(".zst") else ["sudo", "tar", "-xvf", str(archive_path), "-C", str(HOME)]
+    subprocess.run(cmd)
+    # Корректируем права владения на пользователя
+    subprocess.run(["sudo", "chown", "-R", f"{HOME.name}:{HOME.name}", str(HOME / "interprocom")])
+    if (HOME / "odoo_projects").exists():
+        subprocess.run(["sudo", "chown", "-R", f"{HOME.name}:{HOME.name}", str(HOME / "odoo_projects")])
+    print("✔ Рабочие проекты interprocom и odoo_projects успешно восстановлены.")
+    return True

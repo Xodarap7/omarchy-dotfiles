@@ -58,7 +58,8 @@ ui_select_categories() {
         "Среда разработки (Antigravity / Opencode / Git)" \
         "Пользовательские скрипты (~/.local/bin)" \
         "Пакеты программ (Pacman / AUR)" \
-        "Секреты и сессии (из secrets-bundle)"
+        "Секреты и сессии (из secrets-bundle)" \
+        "Рабочие проекты (interprocom + odoo_projects)"
 }
 
 ui_select_widgets() {
