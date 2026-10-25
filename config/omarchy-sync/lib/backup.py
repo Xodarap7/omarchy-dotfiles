@@ -34,11 +34,15 @@ def run_backup(repo_dir: Path):
 
     # 2. Hyprland (исключаем monitors.lua для безопасности)
     print(" [+] Экспорт конфигураций Hyprland...")
-    hypr_files = ["bindings.lua", "looknfeel.lua", "hyprland.lua", "workspaces.lua", "autostart.lua", "input.lua"]
-    for f in hypr_files:
-        src = HOME / ".config/hypr" / f
-        if src.exists():
-            copy_path(src, repo_dir / "config/hypr" / f)
+    hypr_dir = HOME / ".config/hypr"
+    target_hypr = repo_dir / "config/hypr"
+    target_hypr.mkdir(parents=True, exist_ok=True)
+    if hypr_dir.exists():
+        for item in hypr_dir.iterdir():
+            if item.name.startswith("monitors.lua") or ".bak" in item.name:
+                continue
+            if item.is_file():
+                copy_path(item, target_hypr / item.name)
 
     # 3. Терминал и Шелл
     print(" [+] Экспорт Ghostty, Starship, Zsh...")

@@ -100,6 +100,13 @@ def restore_hyprland_files(repo_dir: Path, selected_files: list):
     hypr_dst = HOME / ".config/hypr"
     hypr_dst.mkdir(parents=True, exist_ok=True)
 
+    # Всегда гарантируем наличие обязательных вспомогательных файлов (описания хоткеев, ввод, найтлайт)
+    support_files = ["descriptions_ru.lua", "input.lua", "hyprsunset.conf", "xdph.conf"]
+    for sf in support_files:
+        src = hypr_src / sf
+        if src.exists():
+            copy_path(src, hypr_dst / sf)
+
     for fname in selected_files:
         src = hypr_src / fname
         if src.exists():
