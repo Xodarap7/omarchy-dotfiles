@@ -46,7 +46,8 @@
         "tmux",
         "plocate",
         "jq",
-        "inxi"
+        "inxi",
+        "xorg-xrandr"
       ]
     },
     {
