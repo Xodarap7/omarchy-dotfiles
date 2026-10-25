@@ -5,6 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYNC_DIR="$HOME/.config/omarchy-sync"
 DOTFILES_DIR="${OMARCHY_DOTFILES_DIR:-$HOME/omarchy-dotfiles}"
 
+# Авто-обновление из Git при запуске из репозитория
+if [ -d "$SCRIPT_DIR/.git" ]; then
+    git -C "$SCRIPT_DIR" pull --quiet 2>/dev/null || true
+fi
+
 # Самоустановка / Bootstrap при запуске
 mkdir -p "$SYNC_DIR" "$HOME/.local/bin"
 if [ -d "$SCRIPT_DIR/config/omarchy-sync" ]; then
@@ -18,6 +23,70 @@ chmod +x "$HOME/.local/bin/omarchy-sync" "$SYNC_DIR/lib/"*.py "$SYNC_DIR/lib/"*.
 # Подключаем библиотеки
 source "$SYNC_DIR/lib/ui.sh"
 source "$SYNC_DIR/lib/secrets.sh"
+
+cmd_restore_autonomous() {
+    ui_banner
+    local repo_path="$DOTFILES_DIR"
+    if [ ! -d "$repo_path" ] || [ ! -f "$repo_path/config/omarchy/shell.json" ]; then
+        repo_path="$SCRIPT_DIR"
+    fi
+
+    echo "⚡ Запуск автономного полного восстановления..."
+    
+    # 1. Применяем конфигурации
+    python3 -c "
+import sys
+from pathlib import Path
+sys.path.append('$SYNC_DIR/lib')
+import restore
+restore.restore_all_autonomous(Path(sys.argv[1]))
+" "$repo_path"
+
+    # 2. Авто-поиск и применение архива секретов
+    local sec_found=""
+    if [ -f "$HOME/secrets-bundle.tar.gz" ]; then
+        sec_found="$HOME/secrets-bundle.tar.gz"
+    else
+        for u in /run/media/*/*; do
+            if [ -f "$u/secrets-bundle.tar.gz" ]; then
+                sec_found="$u/secrets-bundle.tar.gz"
+                break
+            fi
+        done
+    fi
+
+    if [ -n "$sec_found" ]; then
+        echo " [+] Автоматически обнаружен архив секретов: $sec_found"
+        restore_secrets_archive "$sec_found" "all"
+    fi
+
+    # 3. Авто-поиск архива interprocom
+    local proj_found=""
+    if [ -f "$HOME/interprocom-backup.tar.zst" ]; then
+        proj_found="$HOME/interprocom-backup.tar.zst"
+    elif [ -f "$HOME/interprocom-backup.tar.gz" ]; then
+        proj_found="$HOME/interprocom-backup.tar.gz"
+    fi
+
+    if [ -n "$proj_found" ]; then
+        echo " [+] Автоматически обнаружен архив проектов: $proj_found"
+        python3 -c "
+import sys
+from pathlib import Path
+sys.path.append('$SYNC_DIR/lib')
+import restore
+restore.restore_work_projects(Path(sys.argv[1]))
+" "$proj_found"
+    fi
+
+    # Перезагружаем интерфейс
+    hyprctl reload 2>/dev/null || true
+    omarchy restart shell 2>/dev/null || true
+
+    echo ""
+    gum style --foreground 120 --bold "🎉 Система полностью и автономно восстановлена!"
+    echo "Все файлы разложены по местам, хоткеи, виджеты и темы активны."
+}
 
 cmd_backup() {
     ui_banner
@@ -294,11 +363,14 @@ case "$ACTION" in
         # Интерактивное главное меню
         CHOICE="$(ui_select_main_action)"
         case "$CHOICE" in
+            *"Автономное полное восстановление"*)
+                cmd_restore_autonomous
+                ;;
+            *"Выборочное восстановление"*)
+                cmd_restore
+                ;;
             *"Создать полный бэкап"*)
                 cmd_backup
-                ;;
-            *"Восстановить конфигурацию"*)
-                cmd_restore
                 ;;
             *"Экспортировать только архив секретов"*)
                 create_secrets_archive "$HOME/secrets-bundle.tar.gz"

@@ -100,20 +100,44 @@ def restore_hyprland_files(repo_dir: Path, selected_files: list):
     hypr_dst = HOME / ".config/hypr"
     hypr_dst.mkdir(parents=True, exist_ok=True)
 
-    # Всегда гарантируем наличие обязательных вспомогательных файлов (описания хоткеев, ввод, найтлайт)
-    support_files = ["descriptions_ru.lua", "input.lua", "hyprsunset.conf", "xdph.conf"]
-    for sf in support_files:
-        src = hypr_src / sf
-        if src.exists():
-            copy_path(src, hypr_dst / sf)
-
-    for fname in selected_files:
-        src = hypr_src / fname
-        if src.exists():
-            copy_path(src, hypr_dst / fname)
-            print(f" [+] Скопирован {fname}")
+    if hypr_src.exists():
+        for item in hypr_src.iterdir():
+            if item.name.startswith("monitors.lua") or ".bak" in item.name or item.name.startswith("."):
+                continue
+            if item.is_file() and ("all" in selected_files or item.name in selected_files):
+                copy_path(item, hypr_dst / item.name)
+                print(f" [+] Скопирован {item.name}")
 
     subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return True
+
+def restore_all_autonomous(repo_dir: Path):
+    print("🚀 === Автономное полное восстановление системы ===")
+    
+    # 1. Hyprland (все файлы кроме monitors.lua)
+    restore_hyprland_files(repo_dir, ["all"])
+
+    # 2. Виджеты и плагины бара
+    master_shell_path = repo_dir / "config/omarchy/shell.json"
+    if master_shell_path.exists():
+        with open(master_shell_path, "r", encoding="utf-8") as f:
+            mshell = json.load(f)
+        all_w = []
+        for sec in ["left", "center", "right"]:
+            for item in mshell.get("bar", {}).get("layout", {}).get(sec, []):
+                all_w.append(item.get("id"))
+        restore_shell_widgets(repo_dir, all_w)
+
+    # 3. Темы и обои
+    restore_themes_and_wallpapers(repo_dir, True, True)
+
+    # 4. Среда разработки и AI
+    restore_dev_and_ai(repo_dir, ["antigravity", "opencode", "git", "shell"])
+
+    # 5. Пользовательские скрипты и службы
+    restore_user_scripts(repo_dir, ["all"])
+
+    print("✔ Базовая автономная конфигурация полностью применена!")
     return True
 
 def restore_themes_and_wallpapers(repo_dir: Path, restore_themes: bool, restore_backgrounds: bool):
