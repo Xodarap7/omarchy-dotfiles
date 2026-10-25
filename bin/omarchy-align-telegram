@@ -1,5 +1,5 @@
 #!/bin/bash
-# Align Telegram popup window to bottom-right corner above status bar of focused monitor
+# Align Telegram popup window to bottom-right 50% height of focused monitor above status bar
 
 tg_addr=$(hyprctl clients -j | jq -r '.[] | select((.class | test("telegram"; "i")) or (.initialClass | test("telegram"; "i"))) | .address' | head -n1)
 if [[ -z "$tg_addr" ]]; then
@@ -10,14 +10,23 @@ mon_info=$(hyprctl monitors -j | jq '.[] | select(.focused)')
 mon_x=$(echo "$mon_info" | jq '.x // 0')
 mon_w=$(echo "$mon_info" | jq '((.width // 1920) / (.scale // 1)) | floor')
 mon_h=$(echo "$mon_info" | jq '((.height // 1080) / (.scale // 1)) | floor')
-bar_h=26
-gap=12
 
-# Width: 1/4 of the monitor width with 20px right margin
-win_w=$(( (mon_w / 4) - 20 ))
-win_h=550
+bar_h=28
+gap=10
+avail_h=$(( mon_h - bar_h - (gap * 3) ))
+win_h=$(( avail_h / 2 ))
+
+# Width: 1/4 of monitor, but at least 420px (so Telegram isn't crushed), max 550px
+calc_w=$(( (mon_w / 4) - 20 ))
+if (( calc_w < 420 )); then
+  win_w=420
+else
+  win_w=$calc_w
+fi
+
 target_x=$(( mon_x + mon_w - win_w - 20 ))
-target_y=$(( mon_h - win_h - bar_h - gap ))
+# Bottom 50%
+target_y=$(( gap + win_h + gap ))
 
 hyprctl eval "
   hl.dispatch(hl.dsp.window.resize({ x = $win_w, y = $win_h, relative = false, window = 'address:$tg_addr' }));

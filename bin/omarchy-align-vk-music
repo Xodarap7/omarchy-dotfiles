@@ -1,5 +1,5 @@
 #!/bin/bash
-# Align VK Music WebApp window to top-right half of focused monitor above Telegram
+# Align VK Music WebApp window to top-right 50% height of focused monitor above Telegram
 
 music_addr=$(hyprctl clients -j | jq -r '.[] | select(.class | test("^chrome-(vk\\.com__audio|music\\.vk\\.com)"; "i")) | .address' | head -n1)
 if [[ -z "$music_addr" ]]; then
@@ -11,11 +11,16 @@ mon_x=$(echo "$mon_info" | jq '.x // 0')
 mon_w=$(echo "$mon_info" | jq '((.width // 1920) / (.scale // 1)) | floor')
 mon_h=$(echo "$mon_info" | jq '((.height // 1080) / (.scale // 1)) | floor')
 
+bar_h=28
+gap=10
+avail_h=$(( mon_h - bar_h - (gap * 3) ))
+win_h=$(( avail_h / 2 ))
+
 # Half monitor width with 20px right margin
 win_w=$(( (mon_w / 2) - 20 ))
-win_h=542
 target_x=$(( mon_x + mon_w - win_w - 20 ))
-target_y=12
+# Top 50%
+target_y=$gap
 
 hyprctl eval "
   hl.dispatch(hl.dsp.window.resize({ x = $win_w, y = $win_h, relative = false, window = 'address:$music_addr' }));
