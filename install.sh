@@ -59,9 +59,10 @@ cmd_restore() {
             mapfile -t raw_widgets < <(ui_select_widgets)
             widget_ids=()
             for w in "${raw_widgets[@]}"; do
-                # Извлекаем ID (первое слово до пробела)
                 w_id="$(echo "$w" | awk '{print $1}')"
-                widget_ids+=("$w_id")
+                if [[ -n "$w_id" && "$w_id" != "▶"* && "$w_id" != "Отметьте"* ]]; then
+                    widget_ids+=("$w_id")
+                fi
             done
 
             python3 -c "
@@ -69,8 +70,8 @@ import sys
 from pathlib import Path
 sys.path.append('$SYNC_DIR/lib')
 import restore
-restore.restore_shell_widgets(Path('$repo_path'), ${widget_ids[@]+$(printf "'%s', " "${widget_ids[@]}")[]})
-"
+restore.restore_shell_widgets(Path(sys.argv[1]), sys.argv[2:])
+" "$repo_path" "${widget_ids[@]}"
         fi
     done
 
@@ -81,7 +82,9 @@ restore.restore_shell_widgets(Path('$repo_path'), ${widget_ids[@]+$(printf "'%s'
             hypr_files=()
             for h in "${raw_hypr[@]}"; do
                 h_file="$(echo "$h" | awk '{print $1}')"
-                hypr_files+=("$h_file")
+                if [[ -n "$h_file" && "$h_file" != "▶"* && "$h_file" != "Отметьте"* ]]; then
+                    hypr_files+=("$h_file")
+                fi
             done
 
             python3 -c "
@@ -89,8 +92,8 @@ import sys
 from pathlib import Path
 sys.path.append('$SYNC_DIR/lib')
 import restore
-restore.restore_hyprland_files(Path('$repo_path'), ${hypr_files[@]+$(printf "'%s', " "${hypr_files[@]}")[]})
-"
+restore.restore_hyprland_files(Path(sys.argv[1]), sys.argv[2:])
+" "$repo_path" "${hypr_files[@]}"
         fi
     done
 
@@ -102,8 +105,8 @@ import sys
 from pathlib import Path
 sys.path.append('$SYNC_DIR/lib')
 import restore
-restore.restore_themes_and_wallpapers(Path('$repo_path'), True, True)
-"
+restore.restore_themes_and_wallpapers(Path(sys.argv[1]), True, True)
+" "$repo_path"
         fi
     done
 
@@ -114,7 +117,9 @@ restore.restore_themes_and_wallpapers(Path('$repo_path'), True, True)
             dev_tools=()
             for d in "${raw_dev[@]}"; do
                 d_id="$(echo "$d" | awk '{print $1}')"
-                dev_tools+=("$d_id")
+                if [[ -n "$d_id" && "$d_id" != "▶"* && "$d_id" != "Отметьте"* ]]; then
+                    dev_tools+=("$d_id")
+                fi
             done
 
             python3 -c "
@@ -122,8 +127,8 @@ import sys
 from pathlib import Path
 sys.path.append('$SYNC_DIR/lib')
 import restore
-restore.restore_dev_and_ai(Path('$repo_path'), ${dev_tools[@]+$(printf "'%s', " "${dev_tools[@]}")[]})
-"
+restore.restore_dev_and_ai(Path(sys.argv[1]), sys.argv[2:])
+" "$repo_path" "${dev_tools[@]}"
         fi
     done
 

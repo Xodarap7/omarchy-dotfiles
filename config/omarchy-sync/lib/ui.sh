@@ -7,7 +7,7 @@ CLR_MUTED="245"
 CLR_SUCCESS="120"
 
 ui_banner() {
-    clear 2>/dev/null || true
+    clear >&2 2>/dev/null || true
     gum style \
         --foreground "$CLR_PRIMARY" \
         --border double \
@@ -16,7 +16,7 @@ ui_banner() {
         --margin "0 1" \
         --align center \
         "🌟 OMARCHY SYNC 🌟" \
-        "Утилита гранулярной миграции и синхронизации окружения"
+        "Утилита гранулярной миграции и синхронизации окружения" >&2
 }
 
 ui_section() {
@@ -25,12 +25,12 @@ ui_section() {
         --foreground "$CLR_SUCCESS" \
         --bold \
         --margin "1 0 0 1" \
-        "▶ $title"
+        "▶ $title" >&2
 }
 
 ui_info() {
     local msg="$1"
-    gum style --foreground "$CLR_MUTED" "  $msg"
+    gum style --foreground "$CLR_MUTED" "  $msg" >&2
 }
 
 ui_select_main_action() {
