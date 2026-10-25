@@ -90,7 +90,7 @@ def run_backup(repo_dir: Path):
     # Добавляем .gitignore
     gitignore = repo_dir / ".gitignore"
     with open(gitignore, "w", encoding="utf-8") as f:
-        f.write("*.bak*\n*.log\n*.tar.gz\nsecrets*\n.DS_Store\n")
+        f.write("*.bak*\n*.log\n*.tar.gz\n*.tar.zst\nsecrets-bundle*\n.DS_Store\n")
 
     subprocess.run(["git", "add", "."], cwd=repo_dir, stdout=subprocess.DEVNULL)
     status = subprocess.run(["git", "status", "--porcelain"], cwd=repo_dir, capture_output=True, text=True)

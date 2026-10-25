@@ -5,19 +5,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYNC_DIR="$HOME/.config/omarchy-sync"
 DOTFILES_DIR="${OMARCHY_DOTFILES_DIR:-$HOME/omarchy-dotfiles}"
 
-# Самоустановка / Bootstrap при первом запуске на новом устройстве
-if [ ! -d "$SYNC_DIR/lib" ]; then
-    echo " [+] Первоначальная инициализация omarchy-sync на новой системе..."
-    mkdir -p "$SYNC_DIR" "$HOME/.local/bin"
-    if [ -d "$SCRIPT_DIR/config/omarchy-sync" ]; then
-        cp -a "$SCRIPT_DIR/config/omarchy-sync/"* "$SYNC_DIR/"
-    elif [ -d "$DOTFILES_DIR/config/omarchy-sync" ]; then
-        cp -a "$DOTFILES_DIR/config/omarchy-sync/"* "$SYNC_DIR/"
-    fi
-    cp -a "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$HOME/.local/bin/omarchy-sync" 2>/dev/null || true
-    chmod +x "$HOME/.local/bin/omarchy-sync" "$SYNC_DIR/lib/"*.py "$SYNC_DIR/lib/"*.sh 2>/dev/null || true
-    echo "✔ Утилита omarchy-sync успешно установлена в ~/.local/bin/omarchy-sync"
+# Самоустановка / Bootstrap при запуске
+mkdir -p "$SYNC_DIR" "$HOME/.local/bin"
+if [ -d "$SCRIPT_DIR/config/omarchy-sync" ]; then
+    cp -a "$SCRIPT_DIR/config/omarchy-sync/"* "$SYNC_DIR/"
+elif [ -d "$DOTFILES_DIR/config/omarchy-sync" ]; then
+    cp -a "$DOTFILES_DIR/config/omarchy-sync/"* "$SYNC_DIR/"
 fi
+cp -a "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$HOME/.local/bin/omarchy-sync" 2>/dev/null || true
+chmod +x "$HOME/.local/bin/omarchy-sync" "$SYNC_DIR/lib/"*.py "$SYNC_DIR/lib/"*.sh 2>/dev/null || true
 
 # Подключаем библиотеки
 source "$SYNC_DIR/lib/ui.sh"

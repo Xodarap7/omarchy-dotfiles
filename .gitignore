@@ -1,5 +1,7 @@
 *.bak*
 *.log
 *.tar.gz
-secrets*
+*.tar.zst
+secrets-bundle*
 .DS_Store
+
