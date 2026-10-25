@@ -70,6 +70,9 @@ def restore_shell_widgets(repo_dir: Path, selected_widget_ids: list):
 
 def restore_profile(repo_dir: Path, profile_name: str = "laptop"):
     print(f"=== Применение профиля системы: {profile_name.upper()} ===")
+    profile_file = HOME / ".config/omarchy/profile"
+    profile_file.parent.mkdir(parents=True, exist_ok=True)
+    profile_file.write_text(profile_name, encoding="utf-8")
     profile_dir = repo_dir / "profiles" / profile_name
     if not profile_dir.exists():
         print(f" [!] Каталог профиля {profile_dir} не найден, пропускаем оверлей.")
