@@ -10,9 +10,29 @@ def copy_path(src: Path, dst: Path, ignore_patterns=None):
     if not src.exists():
         return False
     dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.is_symlink() or os.path.islink(dst):
+        try:
+            dst.unlink(missing_ok=True)
+        except Exception:
+            pass
+    elif dst.exists():
+        if dst.is_dir():
+            try:
+                shutil.rmtree(dst)
+            except OSError:
+                if dst.is_symlink() or os.path.islink(dst):
+                    try:
+                        dst.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                else:
+                    raise
+        else:
+            try:
+                dst.unlink(missing_ok=True)
+            except Exception:
+                pass
     if src.is_dir():
-        if dst.exists():
-            shutil.rmtree(dst)
         shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*(ignore_patterns or [])))
     else:
         shutil.copy2(src, dst)

@@ -12,12 +12,26 @@ def copy_path(src: Path, dst: Path, ignore_patterns=None):
     if not src.exists():
         return False
     dst.parent.mkdir(parents=True, exist_ok=True)
-    if dst.exists():
+    if dst.is_symlink() or os.path.islink(dst):
+        try:
+            dst.unlink(missing_ok=True)
+        except Exception:
+            pass
+    elif dst.exists():
         if dst.is_dir():
-            shutil.rmtree(dst)
+            try:
+                shutil.rmtree(dst)
+            except OSError:
+                if dst.is_symlink() or os.path.islink(dst):
+                    try:
+                        dst.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                else:
+                    raise
         else:
             try:
-                dst.unlink()
+                dst.unlink(missing_ok=True)
             except Exception:
                 pass
     if src.is_dir():
