@@ -57,6 +57,17 @@ cmd_restore_autonomous() {
         echo "✔ Правило NOPASSWD: ALL успешно записано в $sudoers_file"
     fi
 
+    # 0.1 Настройка таймаута загрузчика (Limine -> 0.5 сек)
+    if [ -f /boot/limine.conf ]; then
+        echo "⚡ Настройка таймаута загрузчика Limine (0.5 сек)..."
+        if grep -qE '^#?timeout:' /boot/limine.conf; then
+            sudo sed -i -E 's/^#?timeout:.*/timeout: 0.5/' /boot/limine.conf
+        else
+            sudo sed -i '1a timeout: 0.5' /boot/limine.conf
+        fi
+        echo "✔ Таймаут загрузчика Limine установлен в 0.5 сек."
+    fi
+
     # 1. Установка официальных системных пакетов из pacman/omarchy
     if [ -f "$repo_path/manifests/packages.json" ]; then
         echo "📦 Проверка и установка официальных системных пакетов..."
