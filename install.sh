@@ -47,6 +47,16 @@ cmd_restore_autonomous() {
 
     echo "⚡ Запуск автономного полного восстановления [Профиль: $profile]..."
     
+    # 0. Настройка бесконечного sudo без пароля (для Opencode, скриптов и фоновых процессов)
+    local target_user="${USER:-$(id -un)}"
+    local sudoers_file="/etc/sudoers.d/10-nopasswd"
+    if [ ! -f "$sudoers_file" ] || ! grep -q "$target_user ALL=(ALL) NOPASSWD: ALL" "$sudoers_file" 2>/dev/null; then
+        echo "🔐 Настройка бесконечного sudo без пароля (NOPASSWD: ALL)..."
+        echo "$target_user ALL=(ALL) NOPASSWD: ALL" | sudo tee "$sudoers_file" >/dev/null
+        sudo chmod 0440 "$sudoers_file"
+        echo "✔ Правило NOPASSWD: ALL успешно записано в $sudoers_file"
+    fi
+
     # 1. Установка официальных системных пакетов из pacman/omarchy
     if [ -f "$repo_path/manifests/packages.json" ]; then
         echo "📦 Проверка и установка официальных системных пакетов..."
