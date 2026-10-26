@@ -72,23 +72,32 @@ import restore
 restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
 " "$repo_path" "$profile"
 
-    # 3. Авто-поиск и применение единого архива секретов (включая IDE)
+    # 3. Авто-поиск и применение архива ключей и секретов (keys.tar.zst)
     local sec_found=""
-    if [ -f "$HOME/secrets-bundle.tar.zst" ]; then
+    if [ -f "$HOME/backup/keys.tar.zst" ]; then
+        sec_found="$HOME/backup/keys.tar.zst"
+    elif [ -f "$HOME/backups/keys.tar.zst" ]; then
+        sec_found="$HOME/backups/keys.tar.zst"
+    elif [ -f "$HOME/keys.tar.zst" ]; then
+        sec_found="$HOME/keys.tar.zst"
+    elif [ -f "$HOME/backup/secrets-bundle.tar.zst" ]; then
+        sec_found="$HOME/backup/secrets-bundle.tar.zst"
+    elif [ -f "$HOME/secrets-bundle.tar.zst" ]; then
         sec_found="$HOME/secrets-bundle.tar.zst"
-    elif [ -f "$HOME/secrets-bundle.tar.gz" ]; then
-        sec_found="$HOME/secrets-bundle.tar.gz"
-    elif [ -f "$SCRIPT_DIR/secrets-bundle.tar.zst" ]; then
-        sec_found="$SCRIPT_DIR/secrets-bundle.tar.zst"
-    elif [ -f "$SCRIPT_DIR/secrets-bundle.tar.gz" ]; then
-        sec_found="$SCRIPT_DIR/secrets-bundle.tar.gz"
+    elif [ -f "$SCRIPT_DIR/backup/keys.tar.zst" ]; then
+        sec_found="$SCRIPT_DIR/backup/keys.tar.zst"
+    elif [ -f "$SCRIPT_DIR/keys.tar.zst" ]; then
+        sec_found="$SCRIPT_DIR/keys.tar.zst"
     else
         for u in /run/media/*/*; do
-            if [ -f "$u/secrets-bundle.tar.zst" ]; then
-                sec_found="$u/secrets-bundle.tar.zst"
+            if [ -f "$u/backup/keys.tar.zst" ]; then
+                sec_found="$u/backup/keys.tar.zst"
                 break
-            elif [ -f "$u/secrets-bundle.tar.gz" ]; then
-                sec_found="$u/secrets-bundle.tar.gz"
+            elif [ -f "$u/keys.tar.zst" ]; then
+                sec_found="$u/keys.tar.zst"
+                break
+            elif [ -f "$u/secrets-bundle.tar.zst" ]; then
+                sec_found="$u/secrets-bundle.tar.zst"
                 break
             fi
         done
@@ -96,10 +105,13 @@ restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
 
     if [ -z "$sec_found" ]; then
         if ping -c 1 -W 1 192.168.1.170 &>/dev/null; then
-            echo " [+] Обнаружен основной ПК в сети (192.168.1.170). Попытка скачивания secrets-bundle.tar.zst..."
-            if rsync -e "ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no" -P yar@192.168.1.170:~/secrets-bundle.tar.zst "$HOME/secrets-bundle.tar.zst" 2>/dev/null; then
-                sec_found="$HOME/secrets-bundle.tar.zst"
-                echo "✔ Архив секретов успешно скачан с основного ПК!"
+            echo " [+] Обнаружен основной ПК в сети (192.168.1.170). Пробуем скачать ~/backup..."
+            mkdir -p "$HOME/backup"
+            if rsync -e "ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no" -P -r yar@192.168.1.170:~/backup/ "$HOME/backup/" 2>/dev/null; then
+                if [ -f "$HOME/backup/keys.tar.zst" ]; then
+                    sec_found="$HOME/backup/keys.tar.zst"
+                    echo "✔ Папка ~/backup успешно скачана с основного ПК!"
+                fi
             fi
         fi
     fi
@@ -109,20 +121,37 @@ restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
         restore_secrets_archive "$sec_found" "all"
     else
         echo ""
-        gum style --foreground 214 --bold "⚠️ Внимание: архив secrets-bundle.tar.zst не обнаружен в ~ или на USB-носителе!"
-        echo "   Токены авторизации DeepSeek (Opencode), Google аккаунт (Antigravity CLI), SSH-ключи"
-        echo "   будут активны сразу после того, как вы скопируете единый secrets-bundle.tar.zst:"
-        echo "   scp yar@192.168.1.170:~/secrets-bundle.tar.zst ~/"
-        echo "   omarchy-sync secrets-restore ~/secrets-bundle.tar.zst"
+        gum style --foreground 214 --bold "⚠️ Внимание: архив keys.tar.zst не обнаружен в ~/backup или на USB-носителе!"
+        echo "   Для переноса всех секретов и проектов выполните одну команду на ноутбуке:"
+        echo "   scp -r yar@192.168.1.170:~/backup ~/"
+        echo "   omarchy-sync secrets-restore ~/backup/keys.tar.zst"
         echo ""
     fi
 
-    # 4. Авто-поиск архива interprocom
+    # 4. Авто-поиск архива рабочих проектов (projects.tar.zst)
     local proj_found=""
-    if [ -f "$HOME/interprocom-backup.tar.zst" ]; then
+    if [ -f "$HOME/backup/projects.tar.zst" ]; then
+        proj_found="$HOME/backup/projects.tar.zst"
+    elif [ -f "$HOME/backups/projects.tar.zst" ]; then
+        proj_found="$HOME/backups/projects.tar.zst"
+    elif [ -f "$HOME/projects.tar.zst" ]; then
+        proj_found="$HOME/projects.tar.zst"
+    elif [ -f "$HOME/interprocom-backup.tar.zst" ]; then
         proj_found="$HOME/interprocom-backup.tar.zst"
-    elif [ -f "$HOME/interprocom-backup.tar.gz" ]; then
-        proj_found="$HOME/interprocom-backup.tar.gz"
+    elif [ -f "$SCRIPT_DIR/backup/projects.tar.zst" ]; then
+        proj_found="$SCRIPT_DIR/backup/projects.tar.zst"
+    elif [ -f "$SCRIPT_DIR/projects.tar.zst" ]; then
+        proj_found="$SCRIPT_DIR/projects.tar.zst"
+    else
+        for u in /run/media/*/*; do
+            if [ -f "$u/backup/projects.tar.zst" ]; then
+                proj_found="$u/backup/projects.tar.zst"
+                break
+            elif [ -f "$u/projects.tar.zst" ]; then
+                proj_found="$u/projects.tar.zst"
+                break
+            fi
+        done
     fi
 
     if [ -n "$proj_found" ]; then
@@ -150,11 +179,12 @@ cmd_backup() {
     echo "Запуск полного резервного копирования..."
     python3 "$SYNC_DIR/lib/backup.py" "$DOTFILES_DIR"
     echo ""
-    create_secrets_archive "$HOME/secrets-bundle.tar.gz"
+    mkdir -p "$HOME/backup"
+    create_secrets_archive "$HOME/backup/keys.tar.zst"
     echo ""
     gum style --foreground 120 --bold "🎉 Полный бэкап успешно завершен!"
     echo "1. Открытые конфиги сохранены в локальный репозиторий: $DOTFILES_DIR"
-    echo "2. Защищенный архив секретов создан: $HOME/secrets-bundle.tar.gz"
+    echo "2. Защищенный архив секретов создан: $HOME/backup/keys.tar.zst"
 }
 
 cmd_restore() {
@@ -371,11 +401,11 @@ cmd_git_push() {
 
 cmd_backup_projects() {
     ui_banner
-    local target_archive="${1:-$HOME/interprocom-backup.tar.zst}"
+    local target_archive="${1:-$HOME/backup/projects.tar.zst}"
     echo "=== Архивация проектов interprocom и odoo_projects ==="
     echo "Целевой архив: $target_archive"
     echo "Упаковываем ~/interprocom и ~/odoo_projects с сохранением прав и БД..."
-    
+    mkdir -p "$(dirname "$target_archive")"
     sudo tar --zstd -cvf "$target_archive" -C "$HOME" interprocom odoo_projects
     sudo chown "$(id -u):$(id -g)" "$target_archive"
     gum style --foreground 120 --bold "✔ Архив проектов успешно создан: $target_archive"
@@ -395,16 +425,21 @@ case "$ACTION" in
         cmd_backup
         ;;
     backup-projects)
-        cmd_backup_projects "${2:-$HOME/interprocom-backup.tar.zst}"
+        cmd_backup_projects "${2:-$HOME/backup/projects.tar.zst}"
+        ;;
+    backup-all)
+        mkdir -p "$HOME/backup"
+        create_secrets_archive "$HOME/backup/keys.tar.zst"
+        cmd_backup_projects "$HOME/backup/projects.tar.zst"
         ;;
     restore|--restore|-r)
         cmd_restore
         ;;
     secrets-backup|--secrets-backup)
-        create_secrets_archive "${2:-$HOME/secrets-bundle.tar.gz}"
+        create_secrets_archive "${2:-$HOME/backup/keys.tar.zst}"
         ;;
     secrets-restore|--secrets-restore)
-        restore_secrets_archive "${2:-$HOME/secrets-bundle.tar.gz}" "${3:-all}"
+        restore_secrets_archive "${2:-$HOME/backup/keys.tar.zst}" "${3:-all}"
         ;;
     push|--push)
         cmd_git_push
@@ -415,9 +450,11 @@ case "$ACTION" in
         echo ""
         echo "Команды:"
         echo "  (без параметров)    Запуск интерактивного TUI меню"
-        echo "  backup, -b          Создать бэкап в Git + архив секретов"
+        echo "  backup, -b          Создать бэкап в Git + архив секретов ~/backup/keys.tar.zst"
+        echo "  backup-projects     Создать архив проектов ~/backup/projects.tar.zst"
+        echo "  backup-all          Создать бэкап всех секретов и проектов в ~/backup/"
         echo "  restore, -r         Запустить гранулярный мастер восстановления"
-        echo "  secrets-backup      Создать только архив секретов"
+        echo "  secrets-backup      Создать только архив секретов (~/backup/keys.tar.zst)"
         echo "  secrets-restore     Восстановить секреты из архива"
         echo "  push, --push        Отправить локальный репозиторий в GitHub/GitLab"
         echo "  help, -h            Показать эту справку"
@@ -436,10 +473,10 @@ case "$ACTION" in
                 cmd_backup
                 ;;
             *"Экспортировать только архив секретов"*)
-                create_secrets_archive "$HOME/secrets-bundle.tar.gz"
+                create_secrets_archive "$HOME/backup/keys.tar.zst"
                 ;;
             *"Восстановить только секреты"*)
-                restore_secrets_archive "$HOME/secrets-bundle.tar.gz" "all"
+                restore_secrets_archive "$HOME/backup/keys.tar.zst" "all"
                 ;;
             *"Отправить репозиторий"*)
                 cmd_git_push

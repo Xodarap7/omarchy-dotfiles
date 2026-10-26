@@ -3,6 +3,10 @@
 *.tar.gz
 *.tar.zst
 secrets-bundle*
+keys.tar.zst
+projects.tar.zst
+backup/
+backups/
 .DS_Store
 __pycache__/
 *.pyc

@@ -2,12 +2,12 @@
 set -euo pipefail
 
 create_secrets_archive() {
-    local target_archive="${1:-$HOME/secrets-bundle.tar.gz}"
+    local target_archive="${1:-$HOME/backup/keys.tar.zst}"
     local tmp_dir
     tmp_dir="$(mktemp -d /tmp/omarchy-secrets-XXXXXX)"
 
     echo "=== Создание архива секретов: $target_archive ==="
-    mkdir -p "$tmp_dir/data"
+    mkdir -p "$tmp_dir/data" "$(dirname "$target_archive")"
 
     # 1. SSH ключи
     if [ -d "$HOME/.ssh" ]; then
@@ -81,7 +81,7 @@ create_secrets_archive() {
 }
 
 restore_secrets_archive() {
-    local source_archive="$1"
+    local source_archive="${1:-$HOME/backup/keys.tar.zst}"
     local selected_items="${2:-all}" # "ssh,keyrings,opencode_auth,wifi,ide"
 
     if [ ! -f "$source_archive" ]; then
@@ -194,8 +194,8 @@ restore_secrets_archive() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     action="${1:-backup}"
     if [ "$action" == "backup" ]; then
-        create_secrets_archive "${2:-$HOME/secrets-bundle.tar.gz}"
+        create_secrets_archive "${2:-$HOME/backup/keys.tar.zst}"
     elif [ "$action" == "restore" ]; then
-        restore_secrets_archive "${2:-$HOME/secrets-bundle.tar.gz}" "${3:-all}"
+        restore_secrets_archive "${2:-$HOME/backup/keys.tar.zst}" "${3:-all}"
     fi
 fi
