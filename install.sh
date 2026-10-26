@@ -7,7 +7,7 @@ DOTFILES_DIR="${OMARCHY_DOTFILES_DIR:-$HOME/omarchy-dotfiles}"
 
 # Авто-обновление из Git при запуске из репозитория
 if [ -d "$SCRIPT_DIR/.git" ]; then
-    git -C "$SCRIPT_DIR" fetch https://github.com/Xodarap7/omarchy-dotfiles.git master 2>/dev/null || git -C "$SCRIPT_DIR" fetch origin master 2>/dev/null || true
+    git -C "$SCRIPT_DIR" fetch git@github.com:Xodarap7/omarchy-dotfiles.git master 2>/dev/null || git -C "$SCRIPT_DIR" fetch https://github.com/Xodarap7/omarchy-dotfiles.git master 2>/dev/null || git -C "$SCRIPT_DIR" fetch origin master 2>/dev/null || true
     git -C "$SCRIPT_DIR" reset --hard FETCH_HEAD 2>/dev/null || git -C "$SCRIPT_DIR" reset --hard origin/master 2>/dev/null || true
 fi
 
@@ -66,6 +66,23 @@ cmd_restore_autonomous() {
             sudo sed -i '1a timeout: 0.5' /boot/limine.conf
         fi
         echo "✔ Таймаут загрузчика Limine установлен в 0.5 сек."
+    fi
+
+    # 0.2 Настройка тачпада для профиля ноутбука (kernel bug #220783 i2c_designware)
+    if [ "$profile" = "laptop" ]; then
+        local fix_script="$repo_path/profiles/laptop/bin/touchpad-irq-fix.sh"
+        local svc_boot="$repo_path/profiles/laptop/systemd/touchpad-irq-fix.service"
+        local svc_resume="$repo_path/profiles/laptop/systemd/touchpad-irq-fix-resume.service"
+        if [ -f "$fix_script" ] && [ -f "$svc_boot" ] && [ -f "$svc_resume" ]; then
+            echo "🖱️ Применение фикса тачпада для ноутбука (kernel #220783)..."
+            sudo install -m 755 "$fix_script" /usr/local/bin/touchpad-irq-fix.sh
+            sudo install -m 644 "$svc_boot" /etc/systemd/system/touchpad-irq-fix.service
+            sudo install -m 644 "$svc_resume" /etc/systemd/system/touchpad-irq-fix-resume.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable touchpad-irq-fix.service touchpad-irq-fix-resume.service 2>/dev/null || true
+            sudo /usr/local/bin/touchpad-irq-fix.sh 2>/dev/null || true
+            echo "✔ Сервисы авто-восстановления тачпада установлены и включены."
+        fi
     fi
 
     # 1. Установка официальных системных пакетов из pacman/omarchy

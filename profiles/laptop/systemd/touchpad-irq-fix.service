@@ -1,0 +1,13 @@
+[Unit]
+Description=Re-arm i2c_designware IRQ so the I2C-HID touchpad can probe (kernel #220783)
+Documentation=https://bugzilla.kernel.org/show_bug.cgi?id=220783
+# Late and non-blocking: the touchpad probe happens during boot, the rebind
+# must not delay reaching the graphical session.
+After=graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/touchpad-irq-fix.sh
+
+[Install]
+WantedBy=graphical.target

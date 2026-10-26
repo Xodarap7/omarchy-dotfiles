@@ -1,0 +1,11 @@
+[Unit]
+Description=Re-arm i2c_designware IRQ after resume (touchpad workaround)
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+Environment=TOUCHPAD_WAIT=3
+ExecStart=/usr/local/bin/touchpad-irq-fix.sh
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

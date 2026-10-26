@@ -120,7 +120,31 @@ def restore_profile(repo_dir: Path, profile_name: str = "laptop"):
             except Exception as e:
                 print(f" [!] Ошибка установки обоев ноутбука: {e}")
 
+        # Починка тачпада при восстановлении профиля ноутбука (kernel bug #220783)
+        fix_laptop_touchpad(repo_dir)
+
     return True
+
+def fix_laptop_touchpad(repo_dir: Path):
+    print("=== Установка исправления тачпада (kernel #220783 i2c_designware) ===")
+    laptop_dir = repo_dir / "profiles/laptop"
+    fix_script = laptop_dir / "bin/touchpad-irq-fix.sh"
+    svc_boot = laptop_dir / "systemd/touchpad-irq-fix.service"
+    svc_resume = laptop_dir / "systemd/touchpad-irq-fix-resume.service"
+
+    if fix_script.exists() and svc_boot.exists() and svc_resume.exists():
+        try:
+            subprocess.run(["sudo", "install", "-m", "755", str(fix_script), "/usr/local/bin/touchpad-irq-fix.sh"], check=True)
+            subprocess.run(["sudo", "install", "-m", "644", str(svc_boot), "/etc/systemd/system/touchpad-irq-fix.service"], check=True)
+            subprocess.run(["sudo", "install", "-m", "644", str(svc_resume), "/etc/systemd/system/touchpad-irq-fix-resume.service"], check=True)
+            subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+            subprocess.run(["sudo", "systemctl", "enable", "touchpad-irq-fix.service", "touchpad-irq-fix-resume.service"], check=True)
+            subprocess.run(["sudo", "/usr/local/bin/touchpad-irq-fix.sh"], check=False)
+            print("✔ Исправление тачпада установлено и сервисы активированы.")
+        except Exception as e:
+            print(f" [!] Ошибка установки фикса тачпада: {e}")
+    else:
+        print(" [!] Файлы фикса тачпада не найдены в profiles/laptop.")
 
 def restore_hyprland_files(repo_dir: Path, selected_files: list):
     print("=== Восстановление конфигураций Hyprland ===")
