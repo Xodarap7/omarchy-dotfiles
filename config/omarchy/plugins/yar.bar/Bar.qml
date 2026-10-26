@@ -685,11 +685,17 @@ Item {
 
   function centerSettingsEntries() {
     var entries = root.layoutEntries("center")
-    var result = []
+    var kbd = []
+    var ind = []
     for (var i = 0; i < entries.length; i++) {
-      if (root.isSettingsEntry(entries[i])) result.push(entries[i])
+      var id = root.entryId(entries[i])
+      if (id === "omarchy.keyboard-layout") {
+        kbd.push(entries[i])
+      } else if (id === "omarchy.indicators") {
+        ind.push(entries[i])
+      }
     }
-    return result
+    return kbd.concat(ind)
   }
 
   function isPlayerEntry(entry) {

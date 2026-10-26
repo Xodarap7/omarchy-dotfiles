@@ -23,19 +23,46 @@ create_secrets_archive() {
     fi
 
     # 3. Opencode Auth
+    mkdir -p "$tmp_dir/data/opencode"
     if [ -f "$HOME/.local/share/opencode/auth.json" ]; then
         echo " [+] Упаковка авторизации Opencode (auth.json)..."
-        mkdir -p "$tmp_dir/data/opencode"
         cp -a "$HOME/.local/share/opencode/auth.json" "$tmp_dir/data/opencode/auth.json"
     fi
+    if command -v opencode >/dev/null 2>&1; then
+        echo " [+] Экспорт учетных записей Opencode (opencode auth export)..."
+        opencode auth export > "$tmp_dir/data/opencode/auth_export.json" 2>/dev/null || true
+    fi
 
-    # 4. Antigravity IDE
+    # 4. Antigravity CLI Auth & State
+    mkdir -p "$tmp_dir/data/antigravity-cli"
+    if command -v secret-tool >/dev/null 2>&1; then
+        local agy_token
+        agy_token="$(secret-tool lookup service gemini username antigravity 2>/dev/null || true)"
+        if [ -n "$agy_token" ]; then
+            echo " [+] Упаковка Google OAuth токена для Antigravity CLI..."
+            echo "$agy_token" > "$tmp_dir/data/antigravity-cli/token.json"
+            chmod 600 "$tmp_dir/data/antigravity-cli/token.json"
+        fi
+    fi
+    if [ -d "$HOME/.gemini/antigravity-cli" ]; then
+        echo " [+] Упаковка состояния онбординга Antigravity CLI..."
+        for f in jetski_state.pbtxt installation_id settings.json; do
+            if [ -f "$HOME/.gemini/antigravity-cli/$f" ]; then
+                cp -a "$HOME/.gemini/antigravity-cli/$f" "$tmp_dir/data/antigravity-cli/"
+            fi
+        done
+    fi
+    if [ -d "$HOME/.gemini/config" ]; then
+        cp -a "$HOME/.gemini/config" "$tmp_dir/data/antigravity-cli/config"
+    fi
+
+    # 5. Antigravity IDE
     if [ -d "$HOME/.local/share/antigravity-ide" ]; then
         echo " [+] Упаковка Antigravity IDE (~/.local/share/antigravity-ide)..."
         cp -a "$HOME/.local/share/antigravity-ide" "$tmp_dir/data/antigravity-ide"
     fi
 
-    # 5. Wi-Fi профили NetworkManager (если есть доступ к sudo)
+    # 6. Wi-Fi профили NetworkManager (если есть доступ к sudo)
     if sudo -n true 2>/dev/null; then
         echo " [+] Упаковка Wi-Fi профилей (/etc/NetworkManager/system-connections)..."
         mkdir -p "$tmp_dir/data/network"
@@ -90,16 +117,46 @@ restore_secrets_archive() {
             cp -a "$tmp_dir/local_share/keyrings/"* "$HOME/.local/share/keyrings/"
             chmod 700 "$HOME/.local/share/keyrings"
             chmod 600 "$HOME/.local/share/keyrings/"* 2>/dev/null || true
+            chmod 644 "$HOME/.local/share/keyrings/default" 2>/dev/null || true
+            # Перезапуск сервиса связки паролей для немедленного чтения файлов с диска
+            killall -q gnome-keyring-daemon 2>/dev/null || true
+            eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null) || true
+        fi
+    fi
+
+    # Antigravity CLI Auth & State
+    if [[ "$selected_items" == "all" || "$selected_items" =~ "antigravity" || "$selected_items" =~ "agy" ]]; then
+        if [ -d "$tmp_dir/antigravity-cli" ]; then
+            echo " [+] Восстановление Antigravity CLI (OAuth токен и состояние)..."
+            mkdir -p "$HOME/.gemini/antigravity-cli"
+            for f in jetski_state.pbtxt installation_id settings.json; do
+                if [ -f "$tmp_dir/antigravity-cli/$f" ]; then
+                    cp -a "$tmp_dir/antigravity-cli/$f" "$HOME/.gemini/antigravity-cli/"
+                fi
+            done
+            if [ -d "$tmp_dir/antigravity-cli/config" ]; then
+                mkdir -p "$HOME/.gemini"
+                cp -a "$tmp_dir/antigravity-cli/config" "$HOME/.gemini/"
+            fi
+            if [ -f "$tmp_dir/antigravity-cli/token.json" ] && command -v secret-tool >/dev/null 2>&1; then
+                cat "$tmp_dir/antigravity-cli/token.json" | secret-tool store --label="Password for 'antigravity' on 'gemini'" service gemini username antigravity 2>/dev/null || true
+                echo "✔ Google OAuth токен для Antigravity CLI успешно зарегистрирован в связке ключей."
+            fi
         fi
     fi
 
     # Opencode Auth
-    if [[ "$selected_items" == "all" || "$selected_items" =~ "opencode_auth" ]]; then
+    if [[ "$selected_items" == "all" || "$selected_items" =~ "opencode" || "$selected_items" =~ "opencode_auth" ]]; then
         if [ -f "$tmp_dir/opencode/auth.json" ]; then
             echo " [+] Восстановление авторизации Opencode (Deepseek)..."
             mkdir -p "$HOME/.local/share/opencode"
             cp -a "$tmp_dir/opencode/auth.json" "$HOME/.local/share/opencode/"
             chmod 600 "$HOME/.local/share/opencode/auth.json"
+        fi
+        if [ -f "$tmp_dir/opencode/auth_export.json" ] && command -v opencode >/dev/null 2>&1; then
+            echo " [+] Импорт учетных записей в базу данных Opencode..."
+            opencode auth import < "$tmp_dir/opencode/auth_export.json" 2>/dev/null || true
+            echo "✔ Учетные записи Opencode успешно импортированы."
         fi
     fi
 

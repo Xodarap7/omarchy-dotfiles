@@ -84,14 +84,25 @@ restore.restore_all_autonomous(Path(sys.argv[1]), sys.argv[2])
         done
     fi
 
+    if [ -z "$sec_found" ]; then
+        if ping -c 1 -W 1 192.168.1.170 &>/dev/null; then
+            echo " [+] Обнаружен основной ПК в сети (192.168.1.170). Попытка скачивания secrets-bundle.tar.zst..."
+            if rsync -e "ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no" -P yar@192.168.1.170:~/secrets-bundle.tar.zst "$HOME/secrets-bundle.tar.zst" 2>/dev/null; then
+                sec_found="$HOME/secrets-bundle.tar.zst"
+                echo "✔ Архив секретов успешно скачан с основного ПК!"
+            fi
+        fi
+    fi
+
     if [ -n "$sec_found" ]; then
         echo " [+] Автоматически обнаружен архив секретов: $sec_found"
         restore_secrets_archive "$sec_found" "all"
     else
         echo ""
         gum style --foreground 214 --bold "⚠️ Внимание: архив secrets-bundle.tar.zst не обнаружен в ~ или на USB-носителе!"
-        echo "   Токены авторизации Opencode (Deepseek API), SSH-ключи и Antigravity IDE"
-        echo "   будут активны после того, как вы скопируете единый secrets-bundle.tar.zst и выполните:"
+        echo "   Токены авторизации DeepSeek (Opencode), Google аккаунт (Antigravity CLI), SSH-ключи"
+        echo "   будут активны сразу после того, как вы скопируете единый secrets-bundle.tar.zst:"
+        echo "   scp yar@192.168.1.170:~/secrets-bundle.tar.zst ~/"
         echo "   omarchy-sync secrets-restore ~/secrets-bundle.tar.zst"
         echo ""
     fi
