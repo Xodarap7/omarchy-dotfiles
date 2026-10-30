@@ -14,11 +14,11 @@
           "id": "yar.workspaces"
         },
         {
-          "id": "omarchy.keyboard-layout"
-        },
-        {
           "alwaysShow": true,
           "id": "omarchy.indicators"
+        },
+        {
+          "id": "omarchy.keyboard-layout"
         }
       ],
       "left": [

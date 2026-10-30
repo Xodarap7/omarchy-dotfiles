@@ -26,7 +26,7 @@ BarWidget {
   property int ramPercent: 0
   property int ramTemp: 0
 
-  property bool isHovered: buttonHover.containsMouse
+  property bool isHovered: buttonHoverHandler.hovered || buttonHover.containsMouse
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -96,30 +96,22 @@ BarWidget {
     onTriggered: sysinfoFile.reload()
   }
 
-  Process {
-    id: sysinfoStarter
-    command: ["systemctl", "--user", "start", "omarchy-sysinfo.service"]
-  }
-
-  Timer {
-    interval: 4000
-    repeat: false
-    running: root.cpuTemp === 0 && root.cpuUtil === 0
-    onTriggered: sysinfoStarter.running = true
-  }
-
   Component.onCompleted: sysinfoFile.reload()
 
   Rectangle {
     id: button
 
-    implicitWidth: contentRow.implicitWidth + 16
+    implicitWidth: contentRow.implicitWidth + 20
     implicitHeight: Math.max(26, Style.bar.iconSlot)
-    radius: Style.cornerRadius > 0 ? Style.cornerRadius : 6
+    radius: height / 2
 
-    color: "transparent"
-    border.width: 0
-    border.color: "transparent"
+    color: root.isHovered
+      ? Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.12)
+      : "transparent"
+    border.width: 1
+    border.color: root.isHovered
+      ? Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.28)
+      : "transparent"
 
     Behavior on color { ColorAnimation { duration: 150 } }
     Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -212,6 +204,81 @@ BarWidget {
           renderType: Text.NativeRendering
         }
       }
+
+      // ================= РАЗДЕЛИТЕЛЬ МЕЖДУ ДВУМЯ ЧАСТЯМИ =================
+      Rectangle {
+        Layout.preferredWidth: 1
+        Layout.preferredHeight: 14
+        color: Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.22)
+      }
+
+      // ================= 2. БЛОК: ВИДЕОКАРТА (GPU И VRAM) =================
+      RowLayout {
+        spacing: 6
+
+        // GPU Icon
+        Text {
+          text: "󰾲"
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.body + 1
+          color: root.gpuUtil >= 85 ? "#ff5555" : "#50fa7b"
+          renderType: Text.NativeRendering
+        }
+
+        // GPU Load
+        Text {
+          text: String(root.gpuUtil) + "%"
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+          color: root.utilColor(root.gpuUtil)
+          renderType: Text.NativeRendering
+        }
+
+        // GPU Thermometer Icon
+        Text {
+          text: ""
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          color: root.thermometerColor(root.gpuTemp)
+          renderType: Text.NativeRendering
+        }
+
+        // GPU Temp
+        Text {
+          text: String(root.gpuTemp) + "°"
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          color: root.tempColor(root.gpuTemp)
+          renderType: Text.NativeRendering
+        }
+
+        // Spacing before VRAM inside the GPU block
+        Item { Layout.preferredWidth: 4 }
+
+        // VRAM Icon
+        Text {
+          text: "󰘚"
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.body + 1
+          color: (root.gpuMemTotal > 0 && (root.gpuMemUsed / root.gpuMemTotal) >= 0.85) ? "#ff5555" : "#50fa7b"
+          renderType: Text.NativeRendering
+        }
+
+        // VRAM Used (GB)
+        Text {
+          text: root.gpuMemUsed.toFixed(1) + " Gb"
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+          color: (root.gpuMemTotal > 0 && (root.gpuMemUsed / root.gpuMemTotal) >= 0.85) ? "#ff5555" : Commons.Color.foreground
+          renderType: Text.NativeRendering
+        }
+      }
+    }
+
+    HoverHandler {
+      id: buttonHoverHandler
     }
 
     MouseArea {

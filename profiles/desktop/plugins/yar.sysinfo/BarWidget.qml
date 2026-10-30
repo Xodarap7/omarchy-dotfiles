@@ -26,7 +26,7 @@ BarWidget {
   property int ramPercent: 0
   property int ramTemp: 0
 
-  property bool isHovered: buttonHover.containsMouse
+  property bool isHovered: buttonHoverHandler.hovered || buttonHover.containsMouse
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -101,17 +101,17 @@ BarWidget {
   Rectangle {
     id: button
 
-    implicitWidth: contentRow.implicitWidth + 16
+    implicitWidth: contentRow.implicitWidth + 20
     implicitHeight: Math.max(26, Style.bar.iconSlot)
-    radius: Style.cornerRadius > 0 ? Style.cornerRadius : 6
+    radius: height / 2
 
     color: root.isHovered
       ? Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.12)
-      : Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.05)
+      : "transparent"
     border.width: 1
     border.color: root.isHovered
-      ? Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.35)
-      : Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.18)
+      ? Qt.rgba(Commons.Color.foreground.r, Commons.Color.foreground.g, Commons.Color.foreground.b, 0.28)
+      : "transparent"
 
     Behavior on color { ColorAnimation { duration: 150 } }
     Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -174,9 +174,9 @@ BarWidget {
           renderType: Text.NativeRendering
         }
 
-        // RAM Used / Total (GB)
+        // RAM Used (GB)
         Text {
-          text: root.ramUsedGb.toFixed(1) + "/" + root.ramTotalGb.toFixed(1) + "G"
+          text: root.ramUsedGb.toFixed(1) + " Gb"
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           font.bold: true
@@ -265,9 +265,9 @@ BarWidget {
           renderType: Text.NativeRendering
         }
 
-        // VRAM Used / Total (GB)
+        // VRAM Used (GB)
         Text {
-          text: root.gpuMemUsed.toFixed(1) + "/" + (root.gpuMemTotal % 1 === 0 ? root.gpuMemTotal.toFixed(0) : root.gpuMemTotal.toFixed(1)) + "G"
+          text: root.gpuMemUsed.toFixed(1) + " Gb"
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           font.bold: true
@@ -275,6 +275,10 @@ BarWidget {
           renderType: Text.NativeRendering
         }
       }
+    }
+
+    HoverHandler {
+      id: buttonHoverHandler
     }
 
     MouseArea {

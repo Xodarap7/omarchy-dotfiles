@@ -1,0 +1,107 @@
+#!/bin/bash
+# Omarchy Scratchpad Layout Manager
+# Arranges 4 windows on special:scratchpad:
+# 1) VK Music: left half (100% height, 50% width)
+# 2) Terminal: top right (45% height, 50% width)
+# 3) Antigravity CLI: bottom-left under terminal (~55% height, ~25% width)
+# 4) Telegram: bottom-right under terminal (~55% height, ~25% width)
+# All windows tiled; focus always set to Telegram.
+
+hyprctl repl '
+  local dsp = hl.dsp
+  local dispatch = hl.dispatch
+  local windows = hl.get_windows()
+
+  local music, tg, agy, term
+  for _, w in ipairs(windows) do
+    local c = (w.class or ""):lower()
+    local ic = (w.initial_class or ""):lower()
+    if c:find("chrome%-vk%.com__audio") or c:find("chrome%-music%.vk%.com") then
+      music = w
+    elseif c:find("telegram") or ic:find("telegram") then
+      tg = w
+    elseif w.class == "org.omarchy.scratchpad-agy" or (w.class == "org.omarchy.agy" and w.workspace.name == "special:scratchpad") then
+      agy = w
+    elseif w.class == "org.omarchy.scratchpad-terminal" then
+      term = w
+    end
+  end
+
+  local function addr(w) return w and ("address:" .. w.address) or nil end
+
+  -- Ensure all are tiled and not fullscreened
+  for _, w in ipairs({ music, tg, agy, term }) do
+    if w then
+      if w.fullscreen and w.fullscreen ~= 0 then
+        dispatch(dsp.window.fullscreen({ action = "unset", window = addr(w) }))
+      end
+      if w.floating == 1 or w.floating == true then
+        dispatch(dsp.window.float({ action = "set", value = false, window = addr(w) }))
+      end
+    end
+  end
+
+  local need_rebuild = false
+  if not (music and tg and agy and term) then
+    need_rebuild = false
+  else
+    if music.workspace.name ~= "special:scratchpad" or
+       term.workspace.name ~= "special:scratchpad" or
+       tg.workspace.name ~= "special:scratchpad" or
+       agy.workspace.name ~= "special:scratchpad" then
+      need_rebuild = true
+    elseif music.at.x > term.at.x or term.at.y > tg.at.y or term.at.y > agy.at.y or agy.at.x > tg.at.x then
+      need_rebuild = true
+    end
+  end
+
+  if need_rebuild then
+    dispatch(dsp.window.move({ workspace = "special:staging", follow = false, window = addr(music) }))
+    dispatch(dsp.window.move({ workspace = "special:staging", follow = false, window = addr(term) }))
+    dispatch(dsp.window.move({ workspace = "special:staging", follow = false, window = addr(tg) }))
+    dispatch(dsp.window.move({ workspace = "special:staging", follow = false, window = addr(agy) }))
+
+    dispatch(dsp.window.move({ workspace = "special:scratchpad", follow = false, window = addr(music) }))
+    dispatch(dsp.focus({ window = addr(music) }))
+    dispatch(dsp.layout("preselect r"))
+
+    dispatch(dsp.window.move({ workspace = "special:scratchpad", follow = false, window = addr(term) }))
+    dispatch(dsp.focus({ window = addr(term) }))
+    dispatch(dsp.layout("preselect d"))
+
+    dispatch(dsp.window.move({ workspace = "special:scratchpad", follow = false, window = addr(tg) }))
+    dispatch(dsp.focus({ window = addr(tg) }))
+    dispatch(dsp.layout("preselect l"))
+
+    dispatch(dsp.window.move({ workspace = "special:scratchpad", follow = false, window = addr(agy) }))
+  end
+
+  -- Balance split sizes to monitor geometry
+  local focused_mon
+  for _, m in ipairs(hl.get_monitors()) do
+    if m.focused then focused_mon = m; break end
+  end
+
+  if focused_mon then
+    local mon_w = focused_mon.width / (focused_mon.scale or 1)
+    local mon_h = focused_mon.height / (focused_mon.scale or 1)
+    local target_term_h = math.floor(mon_h * 0.45)
+    local target_agy_w = math.floor((mon_w / 2) * 0.48)
+
+    if term and math.abs(term.size.y - target_term_h) > 40 then
+      local diff_y = target_term_h - term.size.y
+      dispatch(dsp.window.resize({ x = 0, y = diff_y, relative = true, window = addr(term) }))
+    end
+
+    if agy and math.abs(agy.size.x - target_agy_w) > 40 then
+      local diff_x = target_agy_w - agy.size.x
+      dispatch(dsp.window.resize({ x = diff_x, y = 0, relative = true, window = addr(agy) }))
+    end
+  end
+
+  if tg then
+    dispatch(dsp.focus({ window = addr(tg) }))
+  end
+
+  return "done"
+' >/dev/null 2>&1

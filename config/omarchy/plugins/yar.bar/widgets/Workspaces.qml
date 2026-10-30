@@ -19,7 +19,7 @@ BarWidget {
   }
 
   function workspaceIds() {
-    return [1, 2, 3, 4, 5]
+    return [1, 2, 3, -1, 4, 5, 6, 7, 8]
   }
 
   function focusWorkspace(id) {
@@ -55,10 +55,10 @@ BarWidget {
         interactive: modelData > 0
         pressable: modelData > 0
         opacity: modelData === -1 ? 0.35 : (occupied || focused ? 1 : 0.5)
-        horizontalMargin: 6
+        horizontalMargin: modelData === -1 ? 2 : 6
         verticalPadding: 6
-        fixedWidth: root.vertical ? root.barSize : Style.space(20)
-        fixedHeight: root.vertical ? root.barSize : root.barSize
+        fixedWidth: root.vertical ? root.barSize : (modelData === -1 ? Style.space(10) : Style.space(20))
+        fixedHeight: root.vertical ? (modelData === -1 ? Style.space(10) : root.barSize) : root.barSize
         onPressed: function() { if (modelData > 0) root.focusWorkspace(modelData) }
       }
     }

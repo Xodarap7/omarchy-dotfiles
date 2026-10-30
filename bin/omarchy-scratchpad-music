@@ -1,42 +1,64 @@
 #!/bin/bash
-# Unified scratchpad toggle for VK Музыка & Telegram widgets
+# Unified scratchpad / карман toggle (SUPER + S)
+# 1) VK Music occupies the entire left half
+# 2) Terminal occupies top right
+# 3) Antigravity CLI and Telegram occupy bottom right side by side
+# 4) All windows tiled (non-floating)
+# 5) Focus always on Telegram
 
 music_addr=$(hyprctl clients -j | jq -r '.[] | select(.class | test("^chrome-(vk\\.com__audio|music\\.vk\\.com)"; "i")) | .address' | head -n1)
 tg_addr=$(hyprctl clients -j | jq -r '.[] | select((.class | test("telegram"; "i")) or (.initialClass | test("telegram"; "i"))) | .address' | head -n1)
+agy_addr=$(hyprctl clients -j | jq -r '.[] | select(.class == "org.omarchy.scratchpad-agy" or (.class == "org.omarchy.agy" and .workspace.name == "special:scratchpad")) | .address' | head -n1)
+term_addr=$(hyprctl clients -j | jq -r '.[] | select(.class == "org.omarchy.scratchpad-terminal") | .address' | head -n1)
+
 is_scratchpad_open=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .specialWorkspace.name')
 
-align_all() {
-  ~/.local/bin/omarchy-align-vk-music
-  ~/.local/bin/omarchy-align-telegram
-}
-
 if [[ "$is_scratchpad_open" == "special:scratchpad" ]]; then
-  # Scratchpad is open on current monitor: hide it
+  # Scratchpad is open on focused monitor: toggle it closed
   hyprctl dispatch 'hl.dsp.workspace.toggle_special("scratchpad")'
 else
-  # Scratchpad is closed: launch any missing apps, open scratchpad and align both
+  # Scratchpad is closed or on another monitor: ensure missing apps are launched
+  launched_any=0
+
   if [[ -z "$music_addr" ]]; then
     omarchy-launch-webapp "https://vk.com/audio" &
+    launched_any=1
   fi
 
   if [[ -z "$tg_addr" ]]; then
     setsid uwsm-app -- telegram >/dev/null 2>&1 &
+    launched_any=1
   fi
 
+  if [[ -z "$agy_addr" ]]; then
+    setsid foot -a org.omarchy.scratchpad-agy -e agy >/dev/null 2>&1 < /dev/null &
+    launched_any=1
+  fi
+
+  if [[ -z "$term_addr" ]]; then
+    setsid foot -a org.omarchy.scratchpad-terminal >/dev/null 2>&1 < /dev/null &
+    launched_any=1
+  fi
+
+  # Toggle scratchpad open on the current monitor
   hyprctl dispatch 'hl.dsp.workspace.toggle_special("scratchpad")'
 
-  if [[ -n "$music_addr" ]]; then
-    hyprctl dispatch "hl.dsp.focus({ window = \"address:$music_addr\" })"
-  fi
+  # Run layout arranger and ensure focus on Telegram
+  ~/.local/bin/omarchy-scratchpad-layout
 
-  align_all
-
-  # If either app was just launched, ensure they get aligned once mapped
-  if [[ -z "$music_addr" || -z "$tg_addr" ]]; then
+  # If any app was newly launched, keep ensuring layout until all are mapped
+  if (( launched_any == 1 )); then
     (
       for i in {1..25}; do
-        sleep 0.1
-        align_all
+        sleep 0.15
+        m=$(hyprctl clients -j | jq -r '.[] | select(.class | test("^chrome-(vk\\.com__audio|music\\.vk\\.com)"; "i")) | .address' | head -n1)
+        t=$(hyprctl clients -j | jq -r '.[] | select((.class | test("telegram"; "i")) or (.initialClass | test("telegram"; "i"))) | .address' | head -n1)
+        a=$(hyprctl clients -j | jq -r '.[] | select(.class == "org.omarchy.scratchpad-agy" or (.class == "org.omarchy.agy" and .workspace.name == "special:scratchpad")) | .address' | head -n1)
+        k=$(hyprctl clients -j | jq -r '.[] | select(.class == "org.omarchy.scratchpad-terminal") | .address' | head -n1)
+        if [[ -n "$m" && -n "$t" && -n "$a" && -n "$k" ]]; then
+          ~/.local/bin/omarchy-scratchpad-layout
+          break
+        fi
       done
     ) &
   fi

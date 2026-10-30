@@ -137,16 +137,25 @@ o.window({ initial_title = ".*Rocket League.*" }, {
   idle_inhibit = "focus",
 })
 
--- Telegram в качестве виджета на скретчпаде (нижние 50% экрана)
+-- Окна в кармане (скретчпаде): все окна тайловые (не плавающие)
 o.window({ class = ".*[tT]elegram.*" }, {
   workspace = "special:scratchpad",
-  float = true,
+  tile = true,
 })
 
--- VK Музыка (WebApp) виджет на скретчпаде (верхние 50% экрана)
 o.window({ class = "^chrome-(music\\.vk\\.com|vk\\.com__audio).*$" }, {
   workspace = "special:scratchpad",
-  float = true,
+  tile = true,
+})
+
+o.window({ class = "^org\\.omarchy\\.scratchpad-agy$" }, {
+  workspace = "special:scratchpad",
+  tile = true,
+})
+
+o.window({ class = "^org\\.omarchy\\.scratchpad-terminal$" }, {
+  workspace = "special:scratchpad",
+  tile = true,
 })
 
 -- Автоматизация 3D-печати: Слайсер (PrusaSlicer / OrcaSlicer) и Fluidd на 3-м воркспейсе

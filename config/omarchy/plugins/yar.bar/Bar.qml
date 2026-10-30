@@ -685,17 +685,11 @@ Item {
 
   function centerSettingsEntries() {
     var entries = root.layoutEntries("center")
-    var kbd = []
-    var ind = []
+    var result = []
     for (var i = 0; i < entries.length; i++) {
-      var id = root.entryId(entries[i])
-      if (id === "omarchy.keyboard-layout") {
-        kbd.push(entries[i])
-      } else if (id === "omarchy.indicators") {
-        ind.push(entries[i])
-      }
+      if (root.isSettingsEntry(entries[i])) result.push(entries[i])
     }
-    return kbd.concat(ind)
+    return result
   }
 
   function isPlayerEntry(entry) {
@@ -1690,8 +1684,8 @@ Item {
     color: root.surfaceBackground
     topLeftRadius: root.islandRadius
     topRightRadius: root.islandRadius
-    bottomLeftRadius: 0
-    bottomRightRadius: 0
+    bottomLeftRadius: root.islandRadius
+    bottomRightRadius: root.islandRadius
     borderSpec: root.islandBorderSpec
   }
 

@@ -40,9 +40,9 @@ o.bind("SUPER + SHIFT + A", "Antigravity IDE", { launch = "antigravity-ide --new
 -- Отключен хоткей Google Maps
 hl.unbind("SUPER + SHIFT + S")
 
--- Виджеты (ВК Музыка и Telegram) на скретчпаде (ранее SUPER + S был стандартным скретчпадом)
+-- Карман на скретчпаде (ВК Музыка, Telegram, AGY CLI, Терминал)
 hl.unbind("SUPER + S")
-o.bind("SUPER + S", "Виджеты (ВК Музыка и Telegram)", "~/.local/bin/omarchy-scratchpad-music")
+o.bind("SUPER + S", "Карман (ВК, Telegram, AGY, Терминал)", "~/.local/bin/omarchy-scratchpad-music")
 
 -- Pixel-perfect HD скриншоты без мыла и интерполяции (ранее PRINT был omarchy-capture-screenshot)
 hl.unbind("PRINT")
