@@ -48,6 +48,13 @@ o.bind("SUPER + S", "Карман (ВК, Telegram, AGY, Терминал)", "~/.
 hl.unbind("PRINT")
 o.bind("PRINT", "Снимок экрана (HD)", "~/.local/bin/omarchy-screenshot-hd")
 
+-- Временный проброс всех клавиш в виртуалку по Super + F10 (режим Passthrough)
+o.bind("SUPER + F10", "Включить проброс клавиш (Passthrough)", hl.dsp.submap("passthrough"))
+
+hl.define_submap("passthrough", function()
+  o.bind("SUPER + F10", "Выключить проброс клавиш (Passthrough)", hl.dsp.submap("reset"))
+end)
+
 
 
 
