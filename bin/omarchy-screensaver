@@ -19,8 +19,10 @@ for pidfile in "$STATE_DIR/pids/"*; do
 done
 
 touch "$STATE_DIR/pids/$$"
+omarchy-shell -q omarchy.bar setScreensaverActive true 2>/dev/null || true
 
 exit_screensaver() {
+  omarchy-shell -q omarchy.bar setScreensaverActive false 2>/dev/null || true
   hyprctl eval 'hl.config({ cursor = { invisible = false } })' &>/dev/null || hyprctl keyword cursor:invisible false &>/dev/null || true
   pkill -x ttfx 2>/dev/null
   rm -f "$STATE_DIR/pids/$$" 2>/dev/null

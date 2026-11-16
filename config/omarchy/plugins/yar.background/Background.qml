@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQml
 import QtQuick.Effects
 import QtQuick.Shapes
 import qs.Commons
@@ -177,12 +178,22 @@ Item {
     }
   }
 
-  readonly property var desktopBounds: {
-    var minX = 0, minY = 0, maxX = 0, maxY = 0
+  property real desktopMinX: 0
+  property real desktopMinY: 0
+  property real desktopWidth: 0
+  property real desktopHeight: 0
+  property int validScreenCount: 0
+  property int layoutSettledVersion: 0
+
+  function recalculateDesktopGeometry() {
     var screens = Quickshell.screens || []
+    var minX = 0, minY = 0, maxX = 0, maxY = 0
+    var valid = 0
+
     for (var i = 0; i < screens.length; i++) {
       var s = screens[i]
-      if (i === 0) {
+      if (!s || s.width <= 0 || s.height <= 0) continue
+      if (valid === 0) {
         minX = s.x
         minY = s.y
         maxX = s.x + s.width
@@ -193,16 +204,55 @@ Item {
         if (s.x + s.width > maxX) maxX = s.x + s.width
         if (s.y + s.height > maxY) maxY = s.y + s.height
       }
+      valid++
     }
-    return {
-      x: minX,
-      y: minY,
-      width: Math.max(1, maxX - minX),
-      height: Math.max(1, maxY - minY)
+
+    desktopMinX = minX
+    desktopMinY = minY
+    desktopWidth = valid > 0 ? Math.max(1, maxX - minX) : 0
+    desktopHeight = valid > 0 ? Math.max(1, maxY - minY) : 0
+    validScreenCount = valid
+    layoutSettledVersion++
+  }
+
+  Timer {
+    id: geometrySettleTimer
+    interval: 200
+    repeat: false
+    onTriggered: root.recalculateDesktopGeometry()
+  }
+
+  Timer {
+    id: geometryRetryTimer
+    interval: 800
+    repeat: false
+    onTriggered: root.recalculateDesktopGeometry()
+  }
+
+  Connections {
+    target: Quickshell
+    function onScreensChanged() {
+      root.recalculateDesktopGeometry()
+      geometrySettleTimer.restart()
+      geometryRetryTimer.restart()
     }
   }
 
-  Component.onCompleted: refreshBackground()
+  Instantiator {
+    model: Quickshell.screens
+    Connections {
+      target: modelData
+      function onXChanged() { geometrySettleTimer.restart() }
+      function onYChanged() { geometrySettleTimer.restart() }
+      function onWidthChanged() { geometrySettleTimer.restart() }
+      function onHeightChanged() { geometrySettleTimer.restart() }
+    }
+  }
+
+  Component.onCompleted: {
+    recalculateDesktopGeometry()
+    refreshBackground()
+  }
 
   Variants {
     model: Quickshell.screens
@@ -229,35 +279,65 @@ Item {
 
       property bool maskReady: false
 
-      function spanGeom(srcW, srcH) {
-        var screens = Quickshell.screens || []
-        if (screens.length <= 1 || !panel.screen || srcW <= 0 || srcH <= 0) {
-          return { span: false, x: 0, y: 0, w: panel.width, h: panel.height }
+      readonly property var layout: {
+        var ver = root.layoutSettledVersion
+        var sCount = root.validScreenCount
+        var s = panel.screen
+        var sX = s ? s.x : 0
+        var sY = s ? s.y : 0
+        var sW = panel.width
+        var sH = panel.height
+        var totalW = root.desktopWidth
+        var totalH = root.desktopHeight
+        var minX = root.desktopMinX
+        var minY = root.desktopMinY
+
+        return {
+          ver: ver,
+          screenCount: sCount,
+          sX: sX,
+          sY: sY,
+          sW: sW,
+          sH: sH,
+          totalW: totalW,
+          totalH: totalH,
+          minX: minX,
+          minY: minY
         }
+      }
+
+      function spanGeom(srcW, srcH) {
+        var l = panel.layout
+        if (l.screenCount <= 1 || srcW <= 0 || srcH <= 0 || l.sW <= 0 || l.sH <= 0 || l.totalW <= l.sW) {
+          return { span: false, x: 0, y: 0, w: l.sW, h: l.sH }
+        }
+
         var imgRatio = srcW / srcH
         if (imgRatio < 2.5) {
-          return { span: false, x: 0, y: 0, w: panel.width, h: panel.height }
+          return { span: false, x: 0, y: 0, w: l.sW, h: l.sH }
         }
-        var db = root.desktopBounds
-        var desktopRatio = db.width / db.height
+
+        var desktopRatio = l.totalW / l.totalH
         var rW = 0, rH = 0, offX = 0, offY = 0
+
         if (imgRatio > desktopRatio) {
-          rH = db.height
-          rW = db.height * imgRatio
-          offX = (db.width - rW) / 2
+          rH = l.totalH
+          rW = l.totalH * imgRatio
+          offX = (l.totalW - rW) / 2
           offY = 0
         } else {
-          rW = db.width
-          rH = db.width / imgRatio
+          rW = l.totalW
+          rH = l.totalW / imgRatio
           offX = 0
-          offY = (db.height - rH) / 2
+          offY = (l.totalH - rH) / 2
         }
+
         return {
           span: true,
-          x: offX + (db.x - panel.screen.x),
-          y: offY + (db.y - panel.screen.y),
-          w: rW,
-          h: rH
+          x: Math.round(offX + (l.minX - l.sX)),
+          y: Math.round(offY + (l.minY - l.sY)),
+          w: Math.round(rW),
+          h: Math.round(rH)
         }
       }
 

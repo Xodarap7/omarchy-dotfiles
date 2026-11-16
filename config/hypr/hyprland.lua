@@ -42,7 +42,24 @@ hl.env("SHELL", "/usr/bin/zsh")
 require("default.hypr.toggles")
 
 -- Add any other personal Hyprland configuration below.
--- o.window("qemu", { workspace = "5" })
+-- QEMU виртуалка всегда открывается на 9-м воркспейсе
+o.window({ class = "^qemu$" }, {
+  workspace = "9",
+})
+
+-- Скринсейвер: полноэкранный режим, без анимации slide и без полупрозрачности
+o.window({ class = "org.omarchy.screensaver" }, {
+  fullscreen = true,
+  opacity = "1 1",
+  animation = "none",
+  no_anim = true,
+})
+
+-- Antigravity IDE всегда открывается тайловым окном на 1-м воркспейсе (ультраширокий монитор)
+o.window({ class = "^antigravity-ide$" }, {
+  workspace = "1",
+  tile = true,
+})
 
 -- Steam по умолчанию открывается как нормальное тайлинговое окно (не плавающее)
 o.window({ class = "^[sS]team$" }, {
@@ -161,9 +178,29 @@ o.window({ class = "^org\\.omarchy\\.scratchpad-terminal$" }, {
 -- Автоматизация 3D-печати: Слайсер (PrusaSlicer / OrcaSlicer) и Fluidd на 3-м воркспейсе
 -- Открытие одного открывает другой, закрытие одного закрывает другой
 -- Пропорции: 75% ширина слайсера, 25% ширина Fluidd
+-- Всплывающие и диалоговые окна слайсера по умолчанию плавающие и по центру,
+-- чтобы не сдвигать тайлинг Fluidd и PrusaSlicer и не блокировать клики мыши
 o.window({ class = ".*([pP]rusa-[sS]licer|[pP]rusa[sS]licer|[oO]rca-[sS]licer|[oO]rca[sS]licer).*" }, {
+  float = true,
+  center = true,
+})
+
+-- Только главное окно слайсера (с редактором/проектом) тайловое на 3-м воркспейсе
+o.window({
+  class = ".*([pP]rusa-[sS]licer|[pP]rusa[sS]licer|[oO]rca-[sS]licer|[oO]rca[sS]licer).*",
+  title = ".*([pP]rusa[sS]licer|[oO]rca[sS]licer|[sS]lic3r).*",
+}, {
   workspace = "3",
   tile = true,
+})
+
+-- Всплывающие диалоги выбора файлов и подтверждений Chrome / Fluidd — плавающие
+o.window({
+  class = "^chrome-192\\.168\\.1\\.219.*$",
+  title = ".*(Открыть|Сохранить|Выбор|Загрузка|Open|Save|Choose|Upload).*",
+}, {
+  float = true,
+  center = true,
 })
 
 o.window({ class = "^chrome-192\\.168\\.1\\.219.*$" }, {

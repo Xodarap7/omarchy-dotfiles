@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+cd "$HOME/.local/share/antiyoy" || exit 1
+exec /usr/bin/java --enable-native-access=ALL-UNNAMED -jar antiyoy.jar "$@"

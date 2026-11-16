@@ -4,4 +4,5 @@
 o.launch_on_start("telegram -startintray")
 o.launch_on_start("sh -c 'command -v xrandr >/dev/null 2>&1 && xrandr | grep -q \"DP-2 connected\" && xrandr --output DP-2 --primary || true'")
 o.launch_on_start("kdeconnect-indicator")
+o.launch_on_start("/home/yar/VMs/ub22updk050826/start.sh")
 

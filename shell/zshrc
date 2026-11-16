@@ -113,3 +113,12 @@ source $ZSH/oh-my-zsh.sh
 # Antigravity & User paths
 export PATH="$HOME/.local/bin:$PATH"
 
+# OpenRGB profile helper: tracks last selected profile
+openrgb() {
+    if [[ ("$1" == "-p" || "$1" == "--profile") && -n "$2" ]]; then
+        echo "$2" > "$HOME/.config/OpenRGB/last_profile.txt"
+    fi
+    command openrgb "$@"
+}
+
+

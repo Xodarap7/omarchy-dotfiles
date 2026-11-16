@@ -1,0 +1,12 @@
+[Unit]
+Description=Dynamic Fan Lighting Animator for Non-Lian Li ARGB Fans
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/home/yar/.local/bin/openrgb-animator
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

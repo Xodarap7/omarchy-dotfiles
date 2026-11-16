@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""
+Custom Dynamic OpenRGB Animator for RAM & Razer Mouse
+Provides continuous counter-clockwise Taichi circular sweep on RAM modules
+and Razer mouse animation on dynamic profiles (din1, din2, din3),
+with exact static lighting preserved on static profiles (cp1, cp2, cp3, cyber-phuket, off).
+Tracks and restores the last selected profile across reboots.
+"""
+
+import os
+import sys
+import time
+import json
+import socket
+import signal
+import subprocess
+from collections import Counter
+from openrgb import OpenRGBClient
+from openrgb.utils import RGBColor
+
+LAST_PROFILE_FILE = "/home/yar/.config/OpenRGB/last_profile.txt"
+PROFILES_DIR = "/home/yar/.config/OpenRGB/profiles"
+
+DYNAMIC_PROFILES = {
+    "din1": ((255, 56, 0), (255, 176, 0)),     # Coral & Cyber Gold
+    "din2": ((255, 0, 102), (0, 230, 255)),   # Hot Pink & Electric Cyan
+    "din3": ((255, 0, 128), (37, 255, 0)),    # Hot Pink & Toxic Lime
+}
+
+STATIC_PALETTES = {
+    "cp1": ((255, 56, 0), (255, 176, 0)),
+    "cp2": ((255, 0, 102), (0, 230, 255)),
+    "cp3": ((255, 0, 138), (0, 255, 37)),
+    "cyber-phuket-all": ((75, 0, 255), (0, 255, 0)),
+    "cyber-phuket-no-dramm": ((75, 0, 255), (0, 255, 0)),
+    "off": ((0, 0, 0), (0, 0, 0)),
+}
+
+running = True
+
+def signal_handler(sig, frame):
+    global running
+    running = False
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+def get_last_profile():
+    try:
+        if os.path.exists(LAST_PROFILE_FILE):
+            with open(LAST_PROFILE_FILE, "r") as f:
+                prof = f.read().strip()
+                if prof and os.path.exists(os.path.join(PROFILES_DIR, f"{prof}.json")):
+                    return prof
+    except Exception:
+        pass
+    return "cp2"
+
+def save_last_profile(prof_name):
+    if not prof_name or prof_name in ("unknown", "custom"):
+        return
+    try:
+        with open(LAST_PROFILE_FILE, "w") as f:
+            f.write(prof_name + "\n")
+    except Exception:
+        pass
+
+def get_profile_mtime():
+    try:
+        if os.path.exists(LAST_PROFILE_FILE):
+            return os.path.getmtime(LAST_PROFILE_FILE)
+    except Exception:
+        pass
+    return 0.0
+
+def is_server_running():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        res = s.connect_ex(("127.0.0.1", 6742))
+        s.close()
+        return res == 0
+    except Exception:
+        return False
+
+def ensure_server():
+    if not is_server_running():
+        prof = get_last_profile()
+        subprocess.Popen(
+            ["/usr/bin/openrgb", "--server", "--startminimized", "-p", prof],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        for _ in range(50):
+            time.sleep(0.2)
+            if is_server_running():
+                break
+
+def color_dist(c1, c2):
+    return abs(c1[0] - c2[0]) + abs(c1[1] - c2[1]) + abs(c1[2] - c2[2])
+
+def load_mouse_profile_colors(prof_name):
+    try:
+        path = os.path.join(PROFILES_DIR, f"{prof_name}.json")
+        with open(path) as f:
+            d = json.load(f)
+        for c in d.get("controllers", []):
+            if "basilisk" in c.get("name", "").lower() or "razer" in c.get("name", "").lower():
+                cols = []
+                for val in c.get("colors", []):
+                    v = val if isinstance(val, int) else val.get("value", 0)
+                    cols.append(RGBColor(v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF))
+                return cols
+    except Exception:
+        pass
+    return None
+
+def load_dram_profile_colors(prof_name):
+    try:
+        path = os.path.join(PROFILES_DIR, f"{prof_name}.json")
+        with open(path) as f:
+            d = json.load(f)
+        dram_list = []
+        for c in d.get("controllers", []):
+            if "dram" in c.get("name", "").lower():
+                cols = []
+                for val in c.get("colors", []):
+                    v = val if isinstance(val, int) else val.get("value", 0)
+                    cols.append(RGBColor(v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF))
+                dram_list.append(cols)
+        return dram_list
+    except Exception:
+        pass
+    return None
+
+def apply_static_profile(prof_name, dram_devs, mouse_dev):
+    # Static colors for DRAM
+    static_dram = load_dram_profile_colors(prof_name)
+    if static_dram and dram_devs:
+        for idx, dev in enumerate(dram_devs):
+            if idx < len(static_dram):
+                try:
+                    if dev.active_mode != 0:
+                        dev.set_mode(0)
+                    dev.set_colors(static_dram[idx], fast=True)
+                except Exception:
+                    pass
+
+    # Static colors for Mouse
+    if mouse_dev:
+        static_mouse = load_mouse_profile_colors(prof_name)
+        if static_mouse:
+            try:
+                if mouse_dev.active_mode != 0:
+                    mouse_dev.set_mode(0)
+                mouse_dev.set_colors(static_mouse, fast=True)
+            except Exception:
+                pass
+
+def detect_palette_from_gpu(gpu_dev):
+    if not gpu_dev:
+        return None
+
+    try:
+        gpu_dev.update()
+    except Exception:
+        return None
+
+    if not gpu_dev.colors:
+        return None
+
+    # Check if GPU is black
+    gpu_is_black = all((c.red, c.green, c.blue) == (0, 0, 0) for c in gpu_dev.colors)
+    if gpu_is_black:
+        return ((0, 0, 0), (0, 0, 0), "off", False)
+
+    gc = (gpu_dev.colors[0].red, gpu_dev.colors[0].green, gpu_dev.colors[0].blue)
+
+    # cp2: Ice Blue GPU
+    if color_dist(gc, (140, 235, 254)) <= 25:
+        return ((255, 0, 102), (0, 230, 255), "cp2", False)
+
+    # cp3: Toxic Lime (or legacy UV Purple) GPU
+    if color_dist(gc, (0, 255, 37)) <= 25 or color_dist(gc, (0, 255, 0)) <= 25 or color_dist(gc, (127, 0, 255)) <= 25:
+        return ((255, 0, 138), (0, 255, 37), "cp3", False)
+
+    # cp1 vs din1: Coral GPU
+    if color_dist(gc, (255, 56, 0)) <= 25:
+        is_cp1 = (gpu_dev.active_mode == 0)
+        prof = "cp1" if is_cp1 else "din1"
+        return ((255, 56, 0), (255, 176, 0), prof, not is_cp1)
+
+    # din2: Hot Pink GPU
+    if color_dist(gc, (255, 0, 102)) <= 25:
+        return ((255, 0, 102), (0, 230, 255), "din2", True)
+
+    # din3: Hot Pink GPU
+    if color_dist(gc, (255, 0, 128)) <= 25:
+        return ((255, 0, 128), (37, 255, 0), "din3", True)
+
+    # cyber-phuket-all or cyber-phuket-no-dramm: Orchid GPU
+    if color_dist(gc, (184, 64, 255)) <= 25:
+        lp = get_last_profile()
+        prof = "cyber-phuket-no-dramm" if lp == "cyber-phuket-no-dramm" else "cyber-phuket-all"
+        return ((75, 0, 255), (0, 255, 0), prof, False)
+
+    print(f"[animator] Unrecognized GPU color: {gc}", flush=True)
+    return None
+
+def render_dual_ring(num_leds, phase, col1, col2):
+    led_list = []
+    half = num_leds / 2.0
+    for i in range(num_leds):
+        pos = ((i - phase) % num_leds)
+        if pos < half:
+            led_list.append(RGBColor(col1[0], col1[1], col1[2]))
+        else:
+            led_list.append(RGBColor(col2[0], col2[1], col2[2]))
+    return led_list
+
+def main():
+    ensure_server()
+
+    while running:
+        dram_devs = []
+        pump_dev = None
+        mouse_dev = None
+        gpu_dev = None
+        client = None
+
+        # Connect to OpenRGB SDK server
+        try:
+            client = OpenRGBClient()
+            if client.devices:
+                for dev in client.devices:
+                    name = dev.name.lower()
+                    if "dram" in name:
+                        if dev not in dram_devs:
+                            dram_devs.append(dev)
+                    elif "gaii" in name or "galahad" in name:
+                        pump_dev = dev
+                    elif "basilisk" in name or "razer" in name:
+                        mouse_dev = dev
+                    elif "4070" in name or "geforce" in name:
+                        gpu_dev = dev
+        except Exception as e:
+            time.sleep(1)
+            continue
+
+        # Wait until devices are registered
+        if not dram_devs:
+            time.sleep(0.5)
+            continue
+
+        phase_mouse = 0.0
+        current_profile = get_last_profile()
+        last_mtime = get_profile_mtime()
+        last_gpu_check = time.time()
+
+        # Determine if initial profile is dynamic or static
+        is_dynamic = current_profile in DYNAMIC_PROFILES
+        if is_dynamic:
+            col_a, col_b = DYNAMIC_PROFILES[current_profile]
+        elif current_profile in STATIC_PALETTES:
+            col_a, col_b = STATIC_PALETTES[current_profile]
+        else:
+            col_a, col_b = ((255, 0, 102), (0, 230, 255))
+
+        print(f"[animator] Initial profile: {current_profile} (dynamic={is_dynamic})", flush=True)
+
+        # Apply static profile if starting in static mode
+        if not is_dynamic:
+            apply_static_profile(current_profile, dram_devs, mouse_dev)
+
+        while running:
+            try:
+                # 1. Check if profile file was touched / updated by `openrgb -p ...`
+                cur_mtime = get_profile_mtime()
+                if cur_mtime > last_mtime:
+                    last_mtime = cur_mtime
+                    last_gpu_check = time.time() + 10.0  # Freeze GPU polling for 10s to allow hardware to settle
+                    new_prof = get_last_profile()
+                    if new_prof != current_profile:
+                        current_profile = new_prof
+                        is_dynamic = current_profile in DYNAMIC_PROFILES
+                        if is_dynamic:
+                            col_a, col_b = DYNAMIC_PROFILES[current_profile]
+                        elif current_profile in STATIC_PALETTES:
+                            col_a, col_b = STATIC_PALETTES[current_profile]
+                        print(f"[animator] Profile changed via file: {current_profile} (dynamic={is_dynamic})", flush=True)
+                        if not is_dynamic:
+                            apply_static_profile(current_profile, dram_devs, mouse_dev)
+                            time.sleep(0.1)
+                            continue
+
+                # 2. Periodically (every 5.0s) check GPU hardware color for GUI or external changes
+                now = time.time()
+                if now - last_gpu_check > 5.0:
+                    last_gpu_check = now
+                    detected = detect_palette_from_gpu(gpu_dev)
+                    if detected is not None:
+                        d_col_a, d_col_b, d_prof, d_dyn = detected
+                        if d_prof != current_profile and d_prof != "unknown":
+                            current_profile = d_prof
+                            is_dynamic = d_dyn
+                            col_a, col_b = d_col_a, d_col_b
+                            save_last_profile(current_profile)
+                            last_mtime = get_profile_mtime()
+                            print(f"[animator] Profile detected via GPU: {current_profile} (dynamic={is_dynamic})", flush=True)
+                            if not is_dynamic:
+                                apply_static_profile(current_profile, dram_devs, mouse_dev)
+                                time.sleep(0.1)
+                                continue
+
+                # 3. Static Mode: sleep briefly, no continuous LED animation needed
+                if not is_dynamic:
+                    time.sleep(0.1)
+                    continue
+
+                # 4. Dynamic Mode: Taichi circular sweep on DRAM, dual ring on Mouse
+                for d in dram_devs:
+                    try:
+                        if d.active_mode != 0:
+                            d.set_mode(0)
+                    except Exception:
+                        pass
+
+                c_a = RGBColor(col_a[0], col_a[1], col_a[2])
+                c_b = RGBColor(col_b[0], col_b[1], col_b[2])
+
+                for step in range(16):
+                    if not running:
+                        break
+
+                    # Responsive exit if profile changed during animation cycle
+                    if get_profile_mtime() > last_mtime:
+                        break
+
+                    s1_leds = [c_a if ((i + step) % 16) < 8 else c_b for i in range(8)]
+                    s2_leds = [c_a if (((15 - i) + step) % 16) < 8 else c_b for i in range(8)]
+
+                    if len(dram_devs) >= 2:
+                        try:
+                            dram_devs[0].set_colors(s1_leds, fast=True)
+                            dram_devs[1].set_colors(s2_leds, fast=True)
+                        except Exception:
+                            pass
+                    elif dram_devs:
+                        try:
+                            dram_devs[0].set_colors(s1_leds, fast=True)
+                        except Exception:
+                            pass
+
+                    if mouse_dev:
+                        try:
+                            mouse_9 = render_dual_ring(9, phase_mouse, col_a, col_b)
+                            all_mouse = [c_a, c_b] + mouse_9
+                            mouse_dev.set_colors(all_mouse, fast=True)
+                        except Exception:
+                            pass
+                        phase_mouse = (phase_mouse + 0.8) % 9.0
+
+                    time.sleep(0.065)
+
+            except Exception as e:
+                import traceback
+                print(f"[animator] Exception in inner loop: {e}", file=sys.stderr, flush=True)
+                traceback.print_exc(file=sys.stderr)
+                time.sleep(1)
+                break
+
+if __name__ == "__main__":
+    main()

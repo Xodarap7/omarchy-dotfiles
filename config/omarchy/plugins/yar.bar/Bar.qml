@@ -1272,6 +1272,48 @@ Item {
     onFileChanged: barHiddenProbe.running = true
   }
 
+  property bool screensaverActive: false
+
+  Process {
+    id: screensaverProbe
+    command: ["bash", "-c", "pgrep -f '[o]rg.omarchy.screensaver' >/dev/null && echo yes || echo no"]
+    stdout: SplitParser {
+      onRead: function(line) {
+        root.screensaverActive = String(line).trim() === "yes"
+      }
+    }
+  }
+
+  function checkScreensaver() {
+    if (!screensaverProbe.running) screensaverProbe.running = true
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      var name = String(event && event.name ? event.name : "")
+      if (name === "openwindow") {
+        var data = String(event && event.data ? event.data : "")
+        if (data.indexOf("org.omarchy.screensaver") !== -1) {
+          root.screensaverActive = true
+          root.checkScreensaver()
+        }
+      } else if (name === "closewindow") {
+        if (root.screensaverActive) {
+          root.checkScreensaver()
+        }
+      }
+    }
+  }
+
+  Timer {
+    id: screensaverPollTimer
+    interval: 1000
+    repeat: true
+    running: root.screensaverActive
+    onTriggered: root.checkScreensaver()
+  }
+
   // The directory watch can permanently stop delivering events after flag
   // changes land in quick succession, stranding the bar off screen until the
   // shell restarts. `omarchy-toggle-bar` nudges this after flipping the flag
@@ -1284,6 +1326,11 @@ Item {
     // killing it here can swallow the result entirely.
     function syncHidden(): void {
       barHiddenProbe.running = true
+    }
+
+    function setScreensaverActive(active: bool): void {
+      root.screensaverActive = active
+      if (!active) root.checkScreensaver()
     }
   }
 
@@ -1333,8 +1380,8 @@ Item {
     // reveal has to rebuild them — new surface, re-shaped glyphs, re-uploaded
     // textures — which measures ~150ms against ~20ms to tear down. Parking
     // keeps the surface alive, so showing is only a margin change.
-    visible: !remapGuard.remapping
-    exclusionMode: root.barHidden ? ExclusionMode.Ignore : ExclusionMode.Auto
+    visible: !remapGuard.remapping && !root.screensaverActive
+    exclusionMode: (root.barHidden || root.screensaverActive) ? ExclusionMode.Ignore : ExclusionMode.Auto
 
     ScreenMoveRemap {
       id: remapGuard
@@ -1349,16 +1396,16 @@ Item {
     }
 
     margins {
-      top: root.barHidden && root.position === "top"
+      top: (root.barHidden || root.screensaverActive) && root.position === "top"
         ? -root.barSize
         : (root.vertical ? edgeInset : (root.position === "top" ? root.edgeGap : 0))
-      bottom: root.barHidden && root.position === "bottom"
+      bottom: (root.barHidden || root.screensaverActive) && root.position === "bottom"
         ? -root.barSize
         : (root.vertical ? edgeInset : (root.position === "bottom" ? root.edgeGap : 0))
-      left: root.barHidden && root.position === "left"
+      left: (root.barHidden || root.screensaverActive) && root.position === "left"
         ? -root.barSize
         : (!root.vertical ? edgeInset : (root.position === "left" ? root.edgeGap : 0))
-      right: root.barHidden && root.position === "right"
+      right: (root.barHidden || root.screensaverActive) && root.position === "right"
         ? -root.barSize
         : (!root.vertical ? edgeInset : (root.position === "right" ? root.edgeGap : 0))
     }
